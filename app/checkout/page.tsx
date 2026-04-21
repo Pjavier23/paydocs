@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { loadStripe } from '@stripe/stripe-js'
 import { useLang } from '@/components/ui/LanguageContext'
 import { PRICE_LABELS, DOC_NAMES } from '@/lib/stripe'
 import type { DocType } from '@/types'
+import { useState } from 'react'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!)
 
-export default function CheckoutPage() {
+function CheckoutContent() {
   const params = useSearchParams()
   const router = useRouter()
   const { t, lang } = useLang()
@@ -109,5 +110,17 @@ export default function CheckoutPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function CheckoutPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <div className="font-mono text-sm text-gray-400">Loading...</div>
+      </div>
+    }>
+      <CheckoutContent />
+    </Suspense>
   )
 }
