@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-sans: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --font-display: 'DM Serif Display', serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #f5f3ee;
+    color: #0f0f1a;
+  }
+
+  input, select, textarea {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full bg-white border border-gray-200 rounded px-3 py-2.5
+      font-mono text-sm text-ink placeholder-gray-400
+      focus:outline-none focus:border-ink transition-colors;
+  }
+
+  .label {
+    @apply block font-mono text-[10px] uppercase tracking-widest text-gray-400 mb-1.5;
+  }
+
+  .btn-primary {
+    @apply bg-ink text-accent font-mono text-xs uppercase tracking-widest
+      px-6 py-3 rounded transition-all hover:bg-gray-900 active:scale-95;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-gray-300 text-gray-500 font-mono text-xs
+      uppercase tracking-widest px-6 py-3 rounded transition-all
+      hover:border-ink hover:text-ink active:scale-95;
+  }
+
+  .btn-accent {
+    @apply bg-accent text-ink font-mono text-xs font-medium uppercase tracking-widest
+      px-6 py-3 rounded transition-all hover:bg-yellow-300 active:scale-95;
+  }
+
+  .section-title {
+    @apply font-mono text-[10px] uppercase tracking-[3px] text-gray-400
+      pb-2 border-b border-gray-200 mb-4;
+  }
+
+  .card {
+    @apply bg-white border border-gray-200 rounded-sm p-6;
+  }
+}
