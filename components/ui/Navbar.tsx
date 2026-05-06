@@ -42,6 +42,12 @@ export default function Navbar() {
         {user ? (
           <>
             <Link
+              href="/bookkeeping"
+              className="font-mono text-xs uppercase tracking-widest text-gray-400 hover:text-accent transition-colors"
+            >
+              Bookkeeping
+            </Link>
+            <Link
               href="/dashboard"
               className="font-mono text-xs uppercase tracking-widest text-gray-400 hover:text-white transition-colors"
             >
