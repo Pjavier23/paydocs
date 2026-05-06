@@ -55,15 +55,13 @@ export async function POST(req: NextRequest) {
       customer: customerId,
       items: [
         {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           price_data: {
             currency: 'usd',
-            unit_amount: 10000, // $100.00
+            unit_amount: 10000,
             recurring: { interval: 'month' },
-            product_data: {
-              name: 'PayDocs Bookkeeping',
-              description: `Monthly bookkeeping service for ${client.business_name}`,
-            },
-          },
+            product_data: { name: 'PayDocs Bookkeeping' },
+          } as any,
         },
       ],
       payment_behavior: 'default_incomplete',
