@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
         .eq('id', docId)
 
       if (error) {
+        // Log but still return 200 — returning 5xx causes Stripe to retry indefinitely
         console.error('[webhook] failed to update document', error)
-        return NextResponse.json({ error: 'DB update failed' }, { status: 500 })
       }
     }
   }

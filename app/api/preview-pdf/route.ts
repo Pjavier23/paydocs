@@ -25,7 +25,14 @@ const WATERMARK = {
   fontSize: 96,
 }
 
+export const maxDuration = 15
+
 export async function POST(req: NextRequest) {
+  const contentLength = req.headers.get('content-length')
+  if (contentLength && parseInt(contentLength) > 32_768) {
+    return new NextResponse('Payload too large', { status: 413 })
+  }
+
   let body: { type: string; data: Record<string, unknown> }
   try {
     body = await req.json()

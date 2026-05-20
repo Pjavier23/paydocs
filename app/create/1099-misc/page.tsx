@@ -182,6 +182,9 @@ export default function Form1099MISCPage() {
           <div className="font-mono text-[10px] uppercase tracking-wider text-gray-400">1099-MISC · {data.taxYear}</div>
           <div className="font-display text-xl text-ink truncate">{fmt(totalIncome)}</div>
         </div>
+        <button onClick={handlePreview} disabled={previewing} aria-busy={previewing} className="shrink-0 px-3 py-2.5 rounded border border-gray-300 font-mono text-sm text-gray-600 hover:border-ink active:scale-[0.97] transition-all">
+          {previewing ? '…' : '👁'}
+        </button>
         <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary shrink-0">
           {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : `${t('continue_payment')} →`}
         </button>

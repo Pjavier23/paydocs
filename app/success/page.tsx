@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useLang } from '@/components/ui/LanguageContext'
@@ -9,6 +9,30 @@ function SuccessContent() {
   const params = useSearchParams()
   const { lang } = useLang()
   const sessionId = params.get('session_id')
+  const [downloading, setDownloading] = useState(false)
+  const [dlError, setDlError] = useState('')
+
+  const handleDownload = async () => {
+    if (!sessionId || downloading) return
+    setDownloading(true)
+    setDlError('')
+    try {
+      const res = await fetch(`/api/generate-pdf?sessionId=${sessionId}`)
+      if (res.status === 403) throw new Error(lang === 'en' ? 'Payment not yet confirmed. Please wait a moment and try again.' : 'Pago aún no confirmado. Espera un momento e intenta de nuevo.')
+      if (!res.ok) throw new Error(lang === 'en' ? 'Could not generate PDF. Please try again.' : 'No se pudo generar el PDF. Intenta de nuevo.')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `paydocs-${sessionId.slice(-8)}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setDlError(err instanceof Error ? err.message : 'Download failed')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-paper flex items-center justify-center px-6">
@@ -27,12 +51,21 @@ function SuccessContent() {
           </p>
 
           {sessionId ? (
-            <a
-              href={`/api/generate-pdf?sessionId=${sessionId}`}
-              className="btn-accent w-full mb-3"
-            >
-              {lang === 'en' ? 'Download PDF' : 'Descargar PDF'}
-            </a>
+            <>
+              <button
+                onClick={handleDownload}
+                disabled={downloading}
+                aria-busy={downloading}
+                className="btn-accent w-full mb-3"
+              >
+                {downloading
+                  ? (lang === 'en' ? 'Preparing PDF…' : 'Preparando PDF…')
+                  : (lang === 'en' ? 'Download PDF' : 'Descargar PDF')}
+              </button>
+              {dlError && (
+                <p className="font-mono text-xs text-red-500 mb-3">{dlError}</p>
+              )}
+            </>
           ) : (
             <p className="font-mono text-xs text-red-500 mb-3">
               {lang === 'en' ? 'Session ID missing. Check your email for confirmation.' : 'ID de sesión faltante. Revisa tu email.'}
