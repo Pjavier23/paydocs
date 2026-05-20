@@ -7,6 +7,56 @@ import { FormField } from '@/components/ui/FormField'
 import type { PaystubData } from '@/types'
 import { createClient } from '@/lib/supabase'
 
+type Freq = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly'
+
+function calcPayPeriod(freq: Freq): { start: string; end: string; payDate: string } {
+  const today = new Date()
+  const iso = (d: Date) => d.toISOString().split('T')[0]
+  const add = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+  const dow = today.getDay() // 0=Sun … 6=Sat
+
+  // Most recent Friday
+  const lastFri = add(today, -(((dow + 2) % 7) + 1))
+  // Upcoming Friday (or today if Friday)
+  const nextFri = dow === 5 ? today : add(today, (5 - dow + 7) % 7)
+
+  if (freq === 'weekly') {
+    return { start: iso(add(lastFri, -6)), end: iso(lastFri), payDate: iso(nextFri) }
+  }
+  if (freq === 'biweekly') {
+    return { start: iso(add(lastFri, -13)), end: iso(lastFri), payDate: iso(nextFri) }
+  }
+  if (freq === 'semimonthly') {
+    const d = today.getDate()
+    const y = today.getFullYear(), m = today.getMonth()
+    if (d <= 15) {
+      // First half — fill previous second half (16–EOM)
+      const lastM = m === 0 ? 11 : m - 1
+      const lastY = m === 0 ? y - 1 : y
+      return {
+        start: iso(new Date(lastY, lastM, 16)),
+        end: iso(new Date(y, m, 0)),
+        payDate: iso(new Date(y, m, 1)),
+      }
+    } else {
+      return {
+        start: iso(new Date(y, m, 1)),
+        end: iso(new Date(y, m, 15)),
+        payDate: iso(new Date(y, m, 20)),
+      }
+    }
+  }
+  // monthly
+  const y = today.getFullYear(), m = today.getMonth()
+  const lastM = m === 0 ? 11 : m - 1
+  const lastY = m === 0 ? y - 1 : y
+  return {
+    start: iso(new Date(lastY, lastM, 1)),
+    end: iso(new Date(y, m, 0)),
+    payDate: iso(new Date(y, m, 5)),
+  }
+}
+
 const DEFAULT: PaystubData = {
   companyName: '', companyAddress: '', companyCity: '', companyEIN: '',
   empName: '', empAddress: '', empCity: '', empSSN: '',
@@ -26,7 +76,31 @@ export default function PaystubFormPage() {
   const router = useRouter()
   const [data, setData] = useState<PaystubData>(DEFAULT)
   const [loading, setLoading] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
   const [showSummary, setShowSummary] = useState(false)
+
+  const handlePreview = async () => {
+    setPreviewing(true)
+    try {
+      const res = await fetch('/api/preview-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'paystub', data }),
+      })
+      if (!res.ok) throw new Error('Preview failed')
+      const blob = await res.blob()
+      window.open(URL.createObjectURL(blob), '_blank')
+    } catch {
+      alert('Could not generate preview. Please try again.')
+    } finally {
+      setPreviewing(false)
+    }
+  }
+
+  const applyFreq = (freq: Freq) => {
+    const { start, end, payDate } = calcPayPeriod(freq)
+    setData(prev => ({ ...prev, payPeriodStart: start, payPeriodEnd: end, payDate }))
+  }
 
   const set = (field: keyof PaystubData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -182,6 +256,23 @@ export default function PaystubFormPage() {
           {/* Pay Period */}
           <div className="card">
             <div className="section-title">{t('pay_period')}</div>
+            {/* Quick-fill frequency presets */}
+            <div className="mb-3">
+              <label className="label">Quick-fill pay period</label>
+              <div className="flex flex-wrap gap-2">
+                {(['weekly', 'biweekly', 'semimonthly', 'monthly'] as Freq[]).map(freq => (
+                  <button
+                    key={freq}
+                    type="button"
+                    onClick={() => applyFreq(freq)}
+                    className="px-3 py-1.5 rounded border border-gray-200 font-mono text-xs text-gray-600 hover:border-ink hover:text-ink active:scale-[0.97] transition-all"
+                  >
+                    {freq === 'weekly' ? 'Weekly' : freq === 'biweekly' ? 'Bi-weekly' : freq === 'semimonthly' ? 'Semi-monthly' : 'Monthly'}
+                  </button>
+                ))}
+              </div>
+              <p className="font-mono text-[10px] text-gray-400 mt-1.5">Auto-fills dates based on most recent completed period</p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField label={t('pay_period_start')} value={data.payPeriodStart} onChange={set('payPeriodStart')} type="date" />
               <FormField label={t('pay_period_end')} value={data.payPeriodEnd} onChange={set('payPeriodEnd')} type="date" />
@@ -251,6 +342,14 @@ export default function PaystubFormPage() {
         {/* SIDEBAR — desktop only */}
         <div className="hidden lg:block lg:sticky lg:top-6 h-fit space-y-4">
           <SummaryCard />
+          <button
+            onClick={handlePreview}
+            disabled={previewing}
+            aria-busy={previewing}
+            className="w-full py-2.5 rounded border border-gray-300 font-mono text-sm text-gray-600 hover:border-ink hover:text-ink active:scale-[0.98] transition-all"
+          >
+            {previewing ? 'Generating preview…' : '👁 Preview with watermark'}
+          </button>
           <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary w-full">
             {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : t('continue_payment')} →
           </button>

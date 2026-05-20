@@ -24,6 +24,17 @@ export default function Form1099MISCPage() {
   const router = useRouter()
   const [data, setData] = useState<Form1099MISCData>(DEFAULT)
   const [loading, setLoading] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
+
+  const handlePreview = async () => {
+    setPreviewing(true)
+    try {
+      const res = await fetch('/api/preview-pdf', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: '1099-misc', data }) })
+      if (!res.ok) throw new Error()
+      window.open(URL.createObjectURL(await res.blob()), '_blank')
+    } catch { alert('Could not generate preview.') }
+    finally { setPreviewing(false) }
+  }
 
   const set = (field: keyof Form1099MISCData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -153,6 +164,9 @@ export default function Form1099MISCPage() {
             </div>
           </div>
 
+          <button onClick={handlePreview} disabled={previewing} aria-busy={previewing} className="w-full py-2.5 rounded border border-gray-300 font-mono text-sm text-gray-600 hover:border-ink hover:text-ink active:scale-[0.98] transition-all">
+            {previewing ? 'Generating preview…' : '👁 Preview with watermark'}
+          </button>
           <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary w-full">
             {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : t('continue_payment')} →
           </button>
