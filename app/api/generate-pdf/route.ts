@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { renderToBuffer, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
+import { createRequire } from 'module'
 import type { PaystubData, Form1099NECData, Form1099MISCData, InvoiceData } from '@/types'
-import React from 'react'
+
+const _require = createRequire(import.meta.url)
+// Load React and react-pdf from the same node_modules instance to avoid React element mismatch
+const React = _require('react') as typeof import('react')
+const { renderToBuffer, Document, Page, Text, View, StyleSheet } = _require('@react-pdf/renderer') as typeof import('@react-pdf/renderer')
 
 const fmt = (n: number) => `$${(n || 0).toFixed(2)}`
 
