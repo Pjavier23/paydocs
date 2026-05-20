@@ -76,7 +76,20 @@ If you can't determine a value, use null. For is_income: true if this is money r
     try {
       extracted = JSON.parse(raw)
     } catch {
-      extracted = {}
+      await supabase
+        .from('bk_documents')
+        .update({ ai_processed: false, ai_summary: 'AI extraction failed: invalid JSON' })
+        .eq('id', document_id)
+      return NextResponse.json({ error: 'AI returned invalid JSON' }, { status: 500 })
+    }
+
+    // Require at least one meaningful field; otherwise treat as extraction failure
+    if (!extracted.vendor && !extracted.amount && !extracted.date) {
+      await supabase
+        .from('bk_documents')
+        .update({ ai_processed: false, ai_summary: 'AI extraction failed: no data found' })
+        .eq('id', document_id)
+      return NextResponse.json({ error: 'AI could not extract document data' }, { status: 422 })
     }
 
     // Build AI summary
@@ -112,10 +125,9 @@ If you can't determine a value, use null. For is_income: true if this is money r
 
     return NextResponse.json({ document: updated, extracted })
   } catch (err: any) {
-    // Mark as processed with failure so we don't retry infinitely
     await supabase
       .from('bk_documents')
-      .update({ ai_processed: true, ai_summary: 'AI extraction failed' })
+      .update({ ai_processed: false, ai_summary: 'AI extraction failed' })
       .eq('id', document_id)
 
     return NextResponse.json({ error: `OpenAI error: ${err.message}` }, { status: 500 })

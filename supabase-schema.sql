@@ -1,10 +1,11 @@
 -- Run this in Supabase SQL Editor
+-- https://supabase.com/dashboard/project/tkljofxcndnwqyqrtrnx/sql
 
--- Documents table
-create table if not exists public.documents (
+-- PayDocs documents table
+create table if not exists public.paydocs_documents (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete set null,
-  type text not null check (type in ('paystub', '1099-nec', '1099-misc')),
+  type text not null check (type in ('paystub', '1099-nec', '1099-misc', 'invoice')),
   data_json jsonb not null,
   paid boolean not null default false,
   stripe_session_id text,
@@ -12,29 +13,27 @@ create table if not exists public.documents (
 );
 
 -- RLS
-alter table public.documents enable row level security;
+alter table public.paydocs_documents enable row level security;
 
 -- Anyone can insert (guest or logged in)
-create policy "Anyone can create documents"
-  on public.documents for insert
+create policy "Anyone can create paydocs documents"
+  on public.paydocs_documents for insert
   with check (true);
 
--- Users can read their own docs
-create policy "Users can read own documents"
-  on public.documents for select
+-- Users can read their own docs (or guest docs with null user_id)
+create policy "Users can read own paydocs documents"
+  on public.paydocs_documents for select
   using (
     user_id = auth.uid()
     or user_id is null
   );
 
 -- Only service role can update (for Stripe webhook)
-create policy "Service role can update documents"
-  on public.documents for update
+create policy "Service role can update paydocs documents"
+  on public.paydocs_documents for update
   using (true);
 
--- Index for fast user lookups
-create index if not exists documents_user_id_idx on public.documents(user_id);
-create index if not exists documents_stripe_session_idx on public.documents(stripe_session_id);
-
--- Index for guest doc retrieval by session
-create index if not exists documents_created_at_idx on public.documents(created_at desc);
+-- Indexes
+create index if not exists paydocs_documents_user_id_idx on public.paydocs_documents(user_id);
+create index if not exists paydocs_documents_stripe_session_idx on public.paydocs_documents(stripe_session_id);
+create index if not exists paydocs_documents_created_at_idx on public.paydocs_documents(created_at desc);

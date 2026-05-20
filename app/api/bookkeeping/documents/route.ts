@@ -28,16 +28,7 @@ export async function GET(req: NextRequest) {
     .eq('owner_id', user.id)
     .single()
 
-  // Also allow client themselves (they uploaded it)
-  if (!client) {
-    const { data: selfClient } = await supabase
-      .from('bk_clients')
-      .select('id')
-      .eq('id', clientId)
-      .single()
-
-    if (!selfClient) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
+  if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { data: documents, error } = await supabase
     .from('bk_documents')

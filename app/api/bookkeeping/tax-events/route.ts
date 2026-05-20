@@ -20,6 +20,16 @@ export async function GET(req: NextRequest) {
 
   const supabase = createAdminClient()
 
+  // Verify user owns this client
+  const { data: client } = await supabase
+    .from('bk_clients')
+    .select('id')
+    .eq('id', clientId)
+    .eq('owner_id', user.id)
+    .single()
+
+  if (!client) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const { data: events, error } = await supabase
     .from('bk_tax_events')
     .select('*')
@@ -43,6 +53,18 @@ export async function PATCH(req: NextRequest) {
   if (!event_id) return NextResponse.json({ error: 'event_id required' }, { status: 400 })
 
   const supabase = createAdminClient()
+
+  // Verify user owns the client this event belongs to
+  const { data: eventCheck } = await supabase
+    .from('bk_tax_events')
+    .select('id, bk_clients!inner(owner_id)')
+    .eq('id', event_id)
+    .single()
+
+  const ownerCheck = eventCheck as any
+  if (!ownerCheck || ownerCheck.bk_clients?.owner_id !== user.id) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
 
   const { data, error } = await supabase
     .from('bk_tax_events')

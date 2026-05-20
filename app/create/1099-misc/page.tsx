@@ -3,38 +3,21 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useLang } from '@/components/ui/LanguageContext'
+import { FormField } from '@/components/ui/FormField'
 import type { Form1099MISCData } from '@/types'
 import { createClient } from '@/lib/supabase'
 
 const CURRENT_YEAR = new Date().getFullYear().toString()
+const fmt = (n: number) => `$${(n || 0).toFixed(2)}`
 
 const DEFAULT: Form1099MISCData = {
-  payerName: '',
-  payerAddress: '',
-  payerCity: '',
-  payerEIN: '',
-  payerPhone: '',
-  recipientName: '',
-  recipientAddress: '',
-  recipientCity: '',
-  recipientTIN: '',
-  recipientAccountNo: '',
-  rents: 0,
-  royalties: 0,
-  otherIncome: 0,
-  federalTaxWithheld: 0,
-  fishingBoatProceeds: 0,
-  medicalPayments: 0,
-  substitutePayments: 0,
-  cropInsurance: 0,
-  grossAttorney: 0,
-  stateTaxWithheld: 0,
-  stateCode: 'MD',
-  stateIdNo: '',
-  taxYear: CURRENT_YEAR,
+  payerName: '', payerAddress: '', payerCity: '', payerEIN: '', payerPhone: '',
+  recipientName: '', recipientAddress: '', recipientCity: '', recipientTIN: '', recipientAccountNo: '',
+  rents: 0, royalties: 0, otherIncome: 0, federalTaxWithheld: 0,
+  fishingBoatProceeds: 0, medicalPayments: 0, substitutePayments: 0,
+  cropInsurance: 0, grossAttorney: 0, stateTaxWithheld: 0,
+  stateCode: 'MD', stateIdNo: '', taxYear: CURRENT_YEAR,
 }
-
-const fmt = (n: number) => `$${(n || 0).toFixed(2)}`
 
 export default function Form1099MISCPage() {
   const { t, lang } = useLang()
@@ -43,7 +26,7 @@ export default function Form1099MISCPage() {
   const [loading, setLoading] = useState(false)
 
   const set = (field: keyof Form1099MISCData) => (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const val = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value
     setData((prev) => ({ ...prev, [field]: val }))
@@ -53,25 +36,18 @@ export default function Form1099MISCPage() {
     data.fishingBoatProceeds + data.medicalPayments + data.substitutePayments +
     data.cropInsurance + data.grossAttorney
 
+  const canSubmit = !loading && !!data.recipientName && !!data.payerName && totalIncome > 0
+
   const handleSubmit = async () => {
     setLoading(true)
     try {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-
       const { data: doc, error } = await supabase
-        .from('documents')
-        .insert({
-          user_id: user?.id ?? null,
-          type: '1099-misc',
-          data_json: data as unknown as Record<string, unknown>,
-          paid: false,
-        })
-        .select()
-        .single()
-
+        .from('paydocs_documents')
+        .insert({ user_id: user?.id ?? null, type: '1099-misc', data_json: data as unknown as Record<string, unknown>, paid: false })
+        .select().single()
       if (error) throw error
-
       router.push(`/checkout?docId=${doc.id}&type=1099-misc`)
     } catch (err) {
       console.error(err)
@@ -81,92 +57,76 @@ export default function Form1099MISCPage() {
     }
   }
 
-  const Field = ({ label, field, type = 'text', placeholder = '' }: {
-    label: string; field: keyof Form1099MISCData; type?: string; placeholder?: string
-  }) => (
-    <div>
-      <label className="label">{label}</label>
-      <input
-        type={type}
-        value={data[field] as string | number}
-        onChange={set(field)}
-        placeholder={placeholder}
-        className="input-field"
-      />
-    </div>
-  )
-
   return (
-    <div className="max-w-5xl mx-auto px-6 py-10">
-      <div className="mb-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 pb-28 lg:pb-10">
+      <div className="mb-6">
         <div className="font-mono text-[10px] uppercase tracking-[4px] text-gray-400 mb-2">
           {lang === 'en' ? 'Step 1 of 2 — Fill Details' : 'Paso 1 de 2 — Completa los detalles'}
         </div>
-        <h1 className="font-display text-4xl text-ink">1099-MISC</h1>
+        <h1 className="font-display text-3xl sm:text-4xl text-ink">1099-MISC</h1>
         <p className="font-mono text-sm text-gray-400 mt-1">{t('price_1099')}</p>
         <div className="mt-2 inline-block font-mono text-[10px] uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded">
           ⚠ {t('note_1099')}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         <div className="space-y-6">
           <div className="card">
             <div className="section-title">{t('tax_year')}</div>
-            <Field label={t('tax_year')} field="taxYear" />
+            <FormField label={t('tax_year')} value={data.taxYear} onChange={set('taxYear')} />
           </div>
 
           <div className="card">
             <div className="section-title">{t('payer_info')}</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><Field label={t('company_name')} field="payerName" /></div>
-              <div className="col-span-2"><Field label={t('company_address')} field="payerAddress" /></div>
-              <div className="col-span-2"><Field label={t('company_city')} field="payerCity" /></div>
-              <Field label={t('ein')} field="payerEIN" placeholder="XX-XXXXXXX" />
-              <Field label={t('phone')} field="payerPhone" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2"><FormField label={t('company_name')} value={data.payerName} onChange={set('payerName')} /></div>
+              <div className="sm:col-span-2"><FormField label={t('company_address')} value={data.payerAddress} onChange={set('payerAddress')} /></div>
+              <div className="sm:col-span-2"><FormField label={t('company_city')} value={data.payerCity} onChange={set('payerCity')} /></div>
+              <FormField label={t('ein')} value={data.payerEIN} onChange={set('payerEIN')} placeholder="XX-XXXXXXX" />
+              <FormField label={t('phone')} value={data.payerPhone} onChange={set('payerPhone')} />
             </div>
           </div>
 
           <div className="card">
             <div className="section-title">{t('recipient_info')}</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2"><Field label={t('recipient_name')} field="recipientName" /></div>
-              <div className="col-span-2"><Field label={t('recipient_address')} field="recipientAddress" /></div>
-              <div className="col-span-2"><Field label={t('recipient_city')} field="recipientCity" /></div>
-              <Field label={t('recipient_tin')} field="recipientTIN" />
-              <Field label={t('account_no')} field="recipientAccountNo" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2"><FormField label={t('recipient_name')} value={data.recipientName} onChange={set('recipientName')} /></div>
+              <div className="sm:col-span-2"><FormField label={t('recipient_address')} value={data.recipientAddress} onChange={set('recipientAddress')} /></div>
+              <div className="sm:col-span-2"><FormField label={t('recipient_city')} value={data.recipientCity} onChange={set('recipientCity')} /></div>
+              <FormField label={t('recipient_tin')} value={data.recipientTIN} onChange={set('recipientTIN')} />
+              <FormField label={t('account_no')} value={data.recipientAccountNo} onChange={set('recipientAccountNo')} />
             </div>
           </div>
 
           <div className="card">
             <div className="section-title">{t('amounts')}</div>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label={t('box1_misc')} field="rents" type="number" />
-              <Field label={t('box2')} field="royalties" type="number" />
-              <Field label={t('box3')} field="otherIncome" type="number" />
-              <Field label={t('box4')} field="federalTaxWithheld" type="number" />
-              <Field label={t('box5')} field="fishingBoatProceeds" type="number" />
-              <Field label={t('box6_misc')} field="medicalPayments" type="number" />
-              <Field label={t('box8')} field="substitutePayments" type="number" />
-              <Field label={t('box9')} field="cropInsurance" type="number" />
-              <Field label={t('box10')} field="grossAttorney" type="number" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField label={t('box1_misc')} value={data.rents} onChange={set('rents')} type="number" />
+              <FormField label={t('box2')} value={data.royalties} onChange={set('royalties')} type="number" />
+              <FormField label={t('box3')} value={data.otherIncome} onChange={set('otherIncome')} type="number" />
+              <FormField label={t('box4')} value={data.federalTaxWithheld} onChange={set('federalTaxWithheld')} type="number" />
+              <FormField label={t('box5')} value={data.fishingBoatProceeds} onChange={set('fishingBoatProceeds')} type="number" />
+              <FormField label={t('box6_misc')} value={data.medicalPayments} onChange={set('medicalPayments')} type="number" />
+              <FormField label={t('box8')} value={data.substitutePayments} onChange={set('substitutePayments')} type="number" />
+              <FormField label={t('box9')} value={data.cropInsurance} onChange={set('cropInsurance')} type="number" />
+              <FormField label={t('box10')} value={data.grossAttorney} onChange={set('grossAttorney')} type="number" />
               <div>
                 <label className="label">{t('state')}</label>
-                <input value={data.stateCode} onChange={set('stateCode')} className="input-field" />
+                <input value={data.stateCode} onChange={set('stateCode') as React.ChangeEventHandler<HTMLInputElement>} className="input-field" maxLength={2} />
               </div>
-              <Field label={t('box16')} field="stateTaxWithheld" type="number" />
-              <Field label={t('state_id')} field="stateIdNo" />
+              <FormField label={t('box16')} value={data.stateTaxWithheld} onChange={set('stateTaxWithheld')} type="number" />
+              <FormField label={t('state_id')} value={data.stateIdNo} onChange={set('stateIdNo')} />
             </div>
           </div>
         </div>
 
-        {/* Sidebar */}
-        <div className="lg:sticky lg:top-6 h-fit space-y-4">
+        {/* Desktop sidebar */}
+        <div className="hidden lg:block lg:sticky lg:top-6 h-fit space-y-4">
           <div className="card border-ink">
             <div className="section-title">1099-MISC Summary</div>
             <div className="font-display text-2xl text-ink mb-1">{data.recipientName || '—'}</div>
             <div className="font-mono text-xs text-gray-400 mb-4">{data.payerName || '—'} · {data.taxYear}</div>
-
             <div className="space-y-2 font-mono text-sm">
               {[
                 [t('box1_misc'), data.rents],
@@ -177,40 +137,40 @@ export default function Form1099MISCPage() {
                 [t('box8'), data.substitutePayments],
                 [t('box9'), data.cropInsurance],
                 [t('box10'), data.grossAttorney],
-              ]
-                .filter(([, v]) => (v as number) > 0)
-                .map(([label, val]) => (
-                  <div key={label as string} className="flex justify-between">
-                    <span className="text-gray-500 text-xs">{label as string}</span>
-                    <span className="text-ink">{fmt(val as number)}</span>
-                  </div>
-                ))}
+              ].filter(([, v]) => (v as number) > 0).map(([label, val]) => (
+                <div key={label as string} className="flex justify-between">
+                  <span className="text-gray-500 text-xs">{label as string}</span>
+                  <span className="text-ink">{fmt(val as number)}</span>
+                </div>
+              ))}
               <div className="border-t border-gray-100 pt-2 flex justify-between font-medium">
                 <span className="text-gray-500">Total Income</span>
                 <span className="text-ink">{fmt(totalIncome)}</span>
               </div>
             </div>
-
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-amber-700">
-                {t('print_mail_only')}
-              </p>
+              <p className="font-mono text-[10px] uppercase tracking-wider text-amber-700">{t('print_mail_only')}</p>
             </div>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={loading || !data.recipientName || !data.payerName || totalIncome <= 0}
-            className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {loading
-              ? (lang === 'en' ? 'Saving...' : 'Guardando...')
-              : t('continue_payment')} →
+          <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
+            {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : t('continue_payment')} →
           </button>
           <p className="font-mono text-[10px] text-center text-gray-400 uppercase tracking-wider">
             {t('price_1099')} · Stripe secured
           </p>
         </div>
+      </div>
+
+      {/* Mobile sticky bottom bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 flex items-center gap-3 z-40">
+        <div className="flex-1 min-w-0">
+          <div className="font-mono text-[10px] uppercase tracking-wider text-gray-400">1099-MISC · {data.taxYear}</div>
+          <div className="font-display text-xl text-ink truncate">{fmt(totalIncome)}</div>
+        </div>
+        <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
+          {loading ? '...' : `${t('continue_payment')} →`}
+        </button>
       </div>
     </div>
   )

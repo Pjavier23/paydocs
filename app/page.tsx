@@ -5,31 +5,48 @@ import { useLang } from '@/components/ui/LanguageContext'
 
 const docs = [
   {
-    key: 'paystub' as const,
+    key: 'paystub',
     href: '/create/paystub',
     icon: '💵',
-    titleKey: 'hero_paystub' as const,
-    priceKey: 'price_paystub' as const,
+    title_en: 'Create Paystub',
+    title_es: 'Crear Talón de Pago',
+    price: '$3.99 per paystub',
     desc_en: 'Employer & employee copies with YTD totals',
     desc_es: 'Copias del empleador y empleado con totales del año',
+    badge: null,
   },
   {
-    key: '1099-nec' as const,
+    key: 'invoice',
+    href: '/create/invoice',
+    icon: '🧾',
+    title_en: 'Create Invoice',
+    title_es: 'Crear Factura',
+    price: '$2.99 per invoice',
+    desc_en: 'Professional invoices with line items, tax & discounts',
+    desc_es: 'Facturas profesionales con artículos, impuestos y descuentos',
+    badge: null,
+  },
+  {
+    key: '1099-nec',
     href: '/create/1099-nec',
     icon: '📋',
-    titleKey: 'hero_1099nec' as const,
-    priceKey: 'price_1099' as const,
+    title_en: 'Create 1099-NEC',
+    title_es: 'Crear 1099-NEC',
+    price: '$4.99 per form',
     desc_en: 'Nonemployee compensation — print & mail',
     desc_es: 'Compensación no empleado — imprime y envía',
+    badge: 'Print & mail only',
   },
   {
-    key: '1099-misc' as const,
+    key: '1099-misc',
     href: '/create/1099-misc',
     icon: '📄',
-    titleKey: 'hero_1099misc' as const,
-    priceKey: 'price_1099' as const,
+    title_en: 'Create 1099-MISC',
+    title_es: 'Crear 1099-MISC',
+    price: '$4.99 per form',
     desc_en: 'Rents, royalties, other income — print & mail',
     desc_es: 'Alquileres, regalías, otros ingresos — imprime y envía',
+    badge: 'Print & mail only',
   },
 ]
 
@@ -43,33 +60,37 @@ export default function HomePage() {
         <div className="inline-block font-mono text-[10px] uppercase tracking-[4px] text-gray-400 mb-6 border border-gray-200 px-4 py-2 rounded-full">
           {lang === 'en' ? 'Pay per document · No subscription' : 'Paga por documento · Sin suscripción'}
         </div>
-        <h1 className="font-display text-5xl md:text-6xl text-ink leading-tight tracking-tight mb-6">
-          {t('hero_title')}
+        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl text-ink leading-tight tracking-tight mb-6">
+          {lang === 'en' ? 'Professional Pay Documents' : 'Documentos de Pago Profesionales'}
         </h1>
         <p className="font-sans text-gray-500 text-lg max-w-xl mx-auto mb-12">
-          {t('hero_sub')}
+          {lang === 'en'
+            ? 'Paystubs, invoices, and 1099 forms — pay per document, download instantly.'
+            : 'Talones, facturas y formularios 1099 — paga por documento, descarga al instante.'}
         </p>
 
         {/* Doc Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {docs.map((doc) => (
             <Link
               key={doc.key}
               href={doc.href}
-              className="group card hover:border-ink transition-all hover:shadow-lg text-left"
+              className="group card hover:border-ink transition-all hover:shadow-lg text-left flex flex-col"
             >
               <div className="text-3xl mb-3">{doc.icon}</div>
-              <div className="font-display text-xl text-ink mb-1">{t(doc.titleKey)}</div>
-              <div className="font-mono text-xs text-gray-400 mb-4">
+              <div className="font-display text-lg text-ink mb-1">
+                {lang === 'en' ? doc.title_en : doc.title_es}
+              </div>
+              <div className="font-mono text-xs text-gray-400 mb-4 flex-1">
                 {lang === 'en' ? doc.desc_en : doc.desc_es}
               </div>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-sm font-medium text-ink">{t(doc.priceKey)}</span>
+                <span className="font-mono text-sm font-medium text-ink">{doc.price}</span>
                 <span className="font-mono text-xs text-gray-300 group-hover:text-accent transition-colors">→</span>
               </div>
-              {doc.key !== 'paystub' && (
+              {doc.badge && (
                 <div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-1 rounded">
-                  {lang === 'en' ? 'Print & mail only' : 'Solo imprimir y enviar'}
+                  {doc.badge}
                 </div>
               )}
             </Link>

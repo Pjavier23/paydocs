@@ -5,19 +5,22 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 })
 
 export const PRICES = {
-  paystub: 399,   // $3.99 in cents
+  paystub: 399,
   '1099-nec': 499,
   '1099-misc': 499,
+  invoice: 299,
 } as const
 
 export const PRICE_LABELS = {
   paystub: '$3.99',
   '1099-nec': '$4.99',
   '1099-misc': '$4.99',
+  invoice: '$2.99',
 } as const
 
 export const DOC_NAMES = {
   paystub: 'Pay Stub',
   '1099-nec': '1099-NEC Form',
   '1099-misc': '1099-MISC Form',
+  invoice: 'Invoice',
 } as const

@@ -8,7 +8,17 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ['var(--font-display)'],
+        mono: ['var(--font-mono)', 'monospace'],
+        sans: ['var(--font-sans)', 'sans-serif'],
+      },
       colors: {
+        ink: '#0f0f1a',
+        paper: '#f5f3ee',
+        accent: '#d4f545',
+        gold: '#e8c547',
+        muted: '#888',
         background: "var(--background)",
         foreground: "var(--foreground)",
       },

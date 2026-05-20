@@ -1,4 +1,39 @@
-export type DocType = 'paystub' | '1099-nec' | '1099-misc'
+export type DocType = 'paystub' | '1099-nec' | '1099-misc' | 'invoice'
+
+export interface InvoiceItem {
+  id: string
+  description: string
+  quantity: number
+  rate: number
+  amount: number
+}
+
+export interface InvoiceData {
+  // From (business)
+  fromName: string
+  fromAddress: string
+  fromCity: string
+  fromEmail: string
+  fromPhone: string
+  // To (client)
+  toName: string
+  toAddress: string
+  toCity: string
+  toEmail: string
+  // Invoice details
+  invoiceNumber: string
+  invoiceDate: string
+  dueDate: string
+  currency: string
+  // Line items
+  items: InvoiceItem[]
+  // Totals
+  taxRate: number
+  discount: number
+  // Notes
+  notes: string
+  paymentTerms: string
+}
 
 export interface PaystubData {
   // Employer
@@ -97,7 +132,7 @@ export interface Document {
   id: string
   user_id: string | null
   type: DocType
-  data_json: PaystubData | Form1099NECData | Form1099MISCData
+  data_json: PaystubData | Form1099NECData | Form1099MISCData | InvoiceData
   paid: boolean
   stripe_session_id: string | null
   created_at: string

@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
       customerId = customer.id
     }
 
-    // Create subscription with price_data
+    // Create subscription — use monthly_fee from client record (in dollars → cents)
+    const unitAmount = Math.round((client.monthly_fee || 100) * 100)
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [
@@ -58,15 +59,26 @@ export async function POST(req: NextRequest) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           price_data: {
             currency: 'usd',
-            unit_amount: 10000,
+            unit_amount: unitAmount,
             recurring: { interval: 'month' },
             product_data: { name: 'PayDocs Bookkeeping' },
           } as any,
         },
       ],
+      metadata: { client_id: client.id },
       payment_behavior: 'default_incomplete',
       expand: ['latest_invoice.payment_intent'],
     })
+
+    const statusMap: Record<string, string> = {
+      active: 'active',
+      trialing: 'trial',
+      incomplete: 'pending',
+      incomplete_expired: 'cancelled',
+      past_due: 'past_due',
+      canceled: 'cancelled',
+      unpaid: 'past_due',
+    }
 
     // Save to bk_clients
     await supabase
@@ -74,7 +86,7 @@ export async function POST(req: NextRequest) {
       .update({
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
-        subscription_status: subscription.status === 'active' ? 'active' : 'trial',
+        subscription_status: statusMap[subscription.status] ?? 'trial',
       })
       .eq('id', client_id)
 

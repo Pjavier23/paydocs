@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Pedro Javier <pedro@paydocs.app>',
+          from: process.env.RESEND_FROM_EMAIL || 'Pedro Javier <pedro@paydocs.app>',
           to: [email],
           subject: 'Pedro Javier invited you to PayDocs Bookkeeping',
           html: `

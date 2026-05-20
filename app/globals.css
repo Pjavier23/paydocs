@@ -19,15 +19,16 @@
   }
 
   input, select, textarea {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
   }
 }
 
 @layer components {
   .input-field {
-    @apply w-full bg-white border border-gray-200 rounded px-3 py-2.5
-      font-mono text-sm text-ink placeholder-gray-400
-      focus:outline-none focus:border-ink transition-colors;
+    @apply w-full bg-white border border-gray-200 rounded px-3 py-3
+      font-sans text-sm text-ink placeholder-gray-400
+      focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink/10 transition-colors;
+    min-height: 44px;
   }
 
   .label {
@@ -36,18 +37,21 @@
 
   .btn-primary {
     @apply bg-ink text-accent font-mono text-xs uppercase tracking-widest
-      px-6 py-3 rounded transition-all hover:bg-gray-900 active:scale-95;
+      px-6 py-3.5 rounded transition-all hover:bg-gray-900 active:scale-95;
+    min-height: 44px;
   }
 
   .btn-secondary {
     @apply bg-transparent border border-gray-300 text-gray-500 font-mono text-xs
-      uppercase tracking-widest px-6 py-3 rounded transition-all
+      uppercase tracking-widest px-6 py-3.5 rounded transition-all
       hover:border-ink hover:text-ink active:scale-95;
+    min-height: 44px;
   }
 
   .btn-accent {
     @apply bg-accent text-ink font-mono text-xs font-medium uppercase tracking-widest
-      px-6 py-3 rounded transition-all hover:bg-yellow-300 active:scale-95;
+      px-6 py-3.5 rounded transition-all hover:bg-yellow-300 active:scale-95;
+    min-height: 44px;
   }
 
   .section-title {
@@ -56,6 +60,6 @@
   }
 
   .card {
-    @apply bg-white border border-gray-200 rounded-sm p-6;
+    @apply bg-white border border-gray-200 rounded p-4 sm:p-6;
   }
 }

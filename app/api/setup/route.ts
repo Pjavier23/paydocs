@@ -5,7 +5,7 @@ export async function GET() {
   const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
   // Insert a test document to verify table exists, if not it'll error
-  const testRes = await fetch(`${SUPABASE_URL}/rest/v1/documents?limit=1`, {
+  const testRes = await fetch(`${SUPABASE_URL}/rest/v1/paydocs_documents?limit=1`, {
     headers: {
       apikey: SERVICE_KEY,
       Authorization: `Bearer ${SERVICE_KEY}`,
