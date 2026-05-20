@@ -124,85 +124,233 @@ export function buildPaystub(d: PaystubData): Record<string, unknown> {
   }
 }
 
+// ── 1099 shared table helpers ──────────────────────────────────────────────
+
+const FORM_LAYOUT = {
+  hLineWidth: () => 0.5,
+  vLineWidth: () => 0.5,
+  hLineColor: () => '#000000',
+  vLineColor: () => '#000000',
+  defaultBorder: false,
+}
+
+// 6 equal columns × 90pt = 540pt (fits between 36pt margins on LETTER)
+const W6 = [90, 90, 90, 90, 90, 90]
+
+const mkPh = () => ({ text: '', border: [false, false, false, false] })
+const phs = (n: number): Row[] => Array.from({ length: n }, mkPh)
+
+function mkCell(stack: Row[], cs: number, m = [3, 3, 3, 5]): Row {
+  return { colSpan: cs, border: [true, true, true, true], stack, margin: m }
+}
+
+// Address/text field: small label on top, value below
+function adr(label: string, value: string, cs: number): Row[] {
+  return [
+    mkCell([{ text: label, fontSize: 6, color: '#444444' }, { text: value || '—', fontSize: 9, marginTop: 2 }], cs),
+    ...phs(cs - 1),
+  ]
+}
+
+// Amount box: "N   Label" label, formatted dollar value below
+function amtBox(num: string, label: string, value: string, cs: number, vSize = 12): Row[] {
+  return [
+    mkCell([
+      { text: num ? `${num}   ${label}` : label, fontSize: 6, color: '#444444' },
+      { text: value, fontSize: vSize, bold: true, marginTop: 3 },
+    ], cs),
+    ...phs(cs - 1),
+  ]
+}
+
+// Empty box (for boxes we don't collect data for)
+function emptyBox(num: string, label: string, cs: number): Row[] {
+  return [
+    mkCell([{ text: `${num}   ${label}`, fontSize: 6, color: '#444444' }, { text: '', marginTop: 10 }], cs),
+    ...phs(cs - 1),
+  ]
+}
+
+const NEC_DISCLAIMER = 'This is important tax information and is being furnished to the IRS. If you are required to file a return, a negligence penalty or other sanction may be imposed on you if this income is taxable and the IRS determines that it has not been reported. Amounts shown may be subject to self-employment (SE) tax.'
+
+const MISC_DISCLAIMER = 'This is important tax information and is being furnished to the IRS. If you are required to file a return, a negligence penalty or other sanction may be imposed on you if this income is taxable and the IRS determines that it has not been reported.'
+
+// ── 1099-NEC copy ──────────────────────────────────────────────────────────
+
+function necCopy(d: Form1099NECData, copyLabel: string, copyDesc: string): Row[] {
+  return [
+    {
+      columns: [
+        { text: 'Department of the Treasury — Internal Revenue Service', fontSize: 7, color: '#555555' },
+        { text: `${copyLabel} — ${copyDesc}`, fontSize: 7.5, bold: true, alignment: 'right', color: '#000000' },
+      ],
+      marginBottom: 3,
+    },
+    {
+      table: {
+        widths: W6,
+        body: [
+          // Row 1 — Payer info (cs 4) | Form meta (cs 2)
+          [
+            mkCell([
+              { text: '□ VOID   □ CORRECTED', fontSize: 6, color: '#999999' },
+              { text: "PAYER'S name, street address, city or town, state or province, country, ZIP or foreign postal code, and telephone no.", fontSize: 6, color: '#444444', marginTop: 4 },
+              { text: d.payerName || '—', bold: true, fontSize: 9, marginTop: 3 },
+              { text: d.payerAddress || '', fontSize: 8 },
+              { text: d.payerCity || '', fontSize: 8 },
+              ...(d.payerPhone ? [{ text: d.payerPhone, fontSize: 8 }] : []),
+            ], 4, [3, 3, 3, 10]),
+            mkPh(), mkPh(), mkPh(),
+            mkCell([
+              { text: 'OMB No. 1545-0116', fontSize: 7, alignment: 'right', color: '#555555' },
+              { text: d.taxYear || '', fontSize: 22, bold: true, alignment: 'center', marginTop: 2, marginBottom: 2 },
+              { text: 'Form 1099-NEC', fontSize: 9, bold: true, alignment: 'center' },
+              { text: 'Nonemployee', fontSize: 7.5, alignment: 'center' },
+              { text: 'Compensation', fontSize: 7.5, alignment: 'center' },
+            ], 2, [4, 4, 4, 4]),
+            mkPh(),
+          ],
+          // Row 2 — Payer TIN (cs 2) | Recipient TIN (cs 4)
+          [...adr("PAYER'S TIN", d.payerEIN, 2), ...adr("RECIPIENT'S TIN", d.recipientTIN, 4)],
+          // Row 3 — Recipient name (cs 6)
+          [...adr("RECIPIENT'S name", d.recipientName, 6)],
+          // Row 4 — Street address (cs 6)
+          [...adr('Street address (including apt. no.)', d.recipientAddress, 6)],
+          // Row 5 — City / State / ZIP (cs 6)
+          [...adr('City or town, state or province, country, and ZIP or foreign postal code', d.recipientCity, 6)],
+          // Row 6 — Account number (cs 4) | 2nd TIN not. (cs 2)
+          [
+            ...adr('Account number (see instructions)', d.recipientAccountNo || '', 4),
+            mkCell([{ text: '2nd TIN not.', fontSize: 6, color: '#444444' }, { text: '', marginTop: 10 }], 2),
+            mkPh(),
+          ],
+          // Row 7 — Box 1: Nonemployee comp (cs 3) | Box 2: Direct sales checkbox (cs 3)
+          [
+            ...amtBox('1', 'Nonemployee compensation', fmt(d.nonemployeeComp), 3, 16),
+            mkCell([{ text: '2   Payer made direct sales totaling $5,000 or more of consumer products to recipient for resale  □', fontSize: 6, color: '#444444' }], 3, [3, 3, 3, 20]),
+            mkPh(), mkPh(),
+          ],
+          // Row 8 — Box 4: Federal income tax withheld (cs 6)
+          [...amtBox('4', 'Federal income tax withheld', fmt(d.federalTaxWithheld), 6, 13)],
+          // Row 9 — Box 5 (cs 2) | Box 6 (cs 2) | Box 7 (cs 2)
+          [
+            ...amtBox('5', 'State tax withheld', fmt(d.stateTaxWithheld), 2, 11),
+            ...amtBox('6', "State/Payer's state no.", `${d.stateCode || ''}   ${d.stateIdNo || ''}`, 2, 9),
+            ...emptyBox('7', 'State income', 2),
+          ],
+        ],
+      },
+      layout: FORM_LAYOUT,
+      marginBottom: 5,
+    },
+    { text: NEC_DISCLAIMER, fontSize: 6.5, color: '#555555', marginBottom: 4 },
+  ]
+}
+
 export function buildNEC(d: Form1099NECData): Record<string, unknown> {
   return {
     defaultStyle: { font: 'Helvetica', fontSize: 9, color: DARK },
     pageSize: 'LETTER',
     pageMargins: [36, 36, 36, 36],
     content: [
-      { text: `Form 1099-NEC — Tax Year ${d.taxYear}`, fontSize: 14, bold: true, marginBottom: 3 },
-      { text: 'Nonemployee Compensation', color: GRAY, fontSize: 8, marginBottom: 14 },
-      {
-        columns: [
-          {
-            stack: [
-              sectionLabel('PAYER'),
-              { text: d.payerName, bold: true, fontSize: 10 },
-              { text: d.payerAddress, fontSize: 9 },
-              { text: d.payerCity, fontSize: 9 },
-              { text: `EIN: ${d.payerEIN}`, fontSize: 9 },
-              { text: d.payerPhone, fontSize: 9 },
-            ],
-            margin: [0, 0, 8, 0],
-          },
-          {
-            stack: [
-              sectionLabel('RECIPIENT'),
-              { text: d.recipientName, bold: true, fontSize: 10 },
-              { text: d.recipientAddress, fontSize: 9 },
-              { text: d.recipientCity, fontSize: 9 },
-              { text: `TIN: ${d.recipientTIN}`, fontSize: 9 },
-              ...(d.recipientAccountNo ? [{ text: `Acct: ${d.recipientAccountNo}`, fontSize: 9 }] : []),
-            ],
-          },
-        ],
-        marginBottom: 14,
-      },
-      {
-        columns: [
-          { stack: [sectionLabel('BOX 1 — NONEMPLOYEE COMPENSATION'), { text: fmt(d.nonemployeeComp), fontSize: 18, bold: true }], width: '*' },
-          { stack: [sectionLabel('BOX 4 — FEDERAL TAX WITHHELD'), { text: fmt(d.federalTaxWithheld), fontSize: 14, bold: true }], width: 'auto' },
-          { stack: [sectionLabel(`BOX 6 — ${d.stateCode} TAX WITHHELD`), { text: fmt(d.stateTaxWithheld), fontSize: 14, bold: true }], width: 'auto' },
-        ],
-        columnGap: 12,
-        marginBottom: 16,
-      },
-      { text: 'FOR PRINT & MAIL ONLY — NOT FOR E-FILE', fontSize: 7, color: LIGHT },
+      ...necCopy(d, 'Copy B', 'For Recipient'),
+      { text: '', pageBreak: 'before' },
+      ...necCopy(d, 'Copy C', "For Payer's Records"),
     ],
   }
 }
 
-export function buildMISC(d: Form1099MISCData): Record<string, unknown> {
-  const boxes: [string, number][] = [
-    ['Box 1 — Rents', d.rents], ['Box 2 — Royalties', d.royalties],
-    ['Box 3 — Other Income', d.otherIncome], ['Box 4 — Federal Tax Withheld', d.federalTaxWithheld],
-    ['Box 5 — Fishing Boat Proceeds', d.fishingBoatProceeds], ['Box 6 — Medical Payments', d.medicalPayments],
-    ['Box 8 — Substitute Payments', d.substitutePayments], ['Box 9 — Crop Insurance', d.cropInsurance],
-    ['Box 10 — Gross Proceeds to Attorney', d.grossAttorney],
-    [`Box 16 — ${d.stateCode} Tax Withheld`, d.stateTaxWithheld],
-  ].filter(([, v]) => (v as number) > 0) as [string, number][]
+// ── 1099-MISC copy ─────────────────────────────────────────────────────────
 
+function miscCopy(d: Form1099MISCData, copyLabel: string, copyDesc: string): Row[] {
+  return [
+    {
+      columns: [
+        { text: 'Department of the Treasury — Internal Revenue Service', fontSize: 7, color: '#555555' },
+        { text: `${copyLabel} — ${copyDesc}`, fontSize: 7.5, bold: true, alignment: 'right', color: '#000000' },
+      ],
+      marginBottom: 3,
+    },
+    {
+      table: {
+        widths: W6,
+        body: [
+          // Row 1 — Payer info (cs 4) | Form meta (cs 2)
+          [
+            mkCell([
+              { text: '□ VOID   □ CORRECTED', fontSize: 6, color: '#999999' },
+              { text: "PAYER'S name, street address, city or town, state or province, country, ZIP or foreign postal code, and telephone no.", fontSize: 6, color: '#444444', marginTop: 4 },
+              { text: d.payerName || '—', bold: true, fontSize: 9, marginTop: 3 },
+              { text: d.payerAddress || '', fontSize: 8 },
+              { text: d.payerCity || '', fontSize: 8 },
+              ...(d.payerPhone ? [{ text: d.payerPhone, fontSize: 8 }] : []),
+            ], 4, [3, 3, 3, 10]),
+            mkPh(), mkPh(), mkPh(),
+            mkCell([
+              { text: 'OMB No. 1545-0115', fontSize: 7, alignment: 'right', color: '#555555' },
+              { text: d.taxYear || '', fontSize: 22, bold: true, alignment: 'center', marginTop: 2, marginBottom: 2 },
+              { text: 'Form 1099-MISC', fontSize: 9, bold: true, alignment: 'center' },
+              { text: 'Miscellaneous', fontSize: 7.5, alignment: 'center' },
+              { text: 'Information', fontSize: 7.5, alignment: 'center' },
+            ], 2, [4, 4, 4, 4]),
+            mkPh(),
+          ],
+          // Row 2 — Payer TIN (cs 2) | Recipient TIN (cs 4)
+          [...adr("PAYER'S TIN", d.payerEIN, 2), ...adr("RECIPIENT'S TIN", d.recipientTIN, 4)],
+          // Row 3 — Recipient name (cs 6)
+          [...adr("RECIPIENT'S name", d.recipientName, 6)],
+          // Row 4 — Street address (cs 6)
+          [...adr('Street address (including apt. no.)', d.recipientAddress, 6)],
+          // Row 5 — City / State / ZIP (cs 6)
+          [...adr('City or town, state or province, country, and ZIP or foreign postal code', d.recipientCity, 6)],
+          // Row 6 — Account number (cs 4) | FATCA filing requirement (cs 2)
+          [
+            ...adr('Account number (see instructions)', d.recipientAccountNo || '', 4),
+            mkCell([{ text: 'FATCA filing requirement  □', fontSize: 6, color: '#444444' }, { text: '', marginTop: 10 }], 2),
+            mkPh(),
+          ],
+          // Row 7 — Box 1: Rents (cs 3) | Box 2: Royalties (cs 3)
+          [...amtBox('1', 'Rents', fmt(d.rents), 3), ...amtBox('2', 'Royalties', fmt(d.royalties), 3)],
+          // Row 8 — Box 3: Other income (cs 3) | Box 4: Federal tax withheld (cs 3)
+          [...amtBox('3', 'Other income', fmt(d.otherIncome), 3), ...amtBox('4', 'Federal income tax withheld', fmt(d.federalTaxWithheld), 3)],
+          // Row 9 — Box 5: Fishing (cs 3) | Box 6: Medical (cs 3)
+          [...amtBox('5', 'Fishing boat proceeds', fmt(d.fishingBoatProceeds), 3), ...amtBox('6', 'Medical and health care payments', fmt(d.medicalPayments), 3)],
+          // Row 10 — Box 7: Direct sales checkbox (cs 3) | Box 8: Substitute payments (cs 3)
+          [
+            mkCell([{ text: '7   Payer made direct sales totaling $5,000 or more of consumer products to buyer (recipient) for resale  □', fontSize: 6, color: '#444444' }], 3, [3, 3, 3, 10]),
+            mkPh(), mkPh(),
+            ...amtBox('8', 'Substitute payments in lieu of dividends or interest', fmt(d.substitutePayments), 3),
+          ],
+          // Row 11 — Box 9: Crop insurance (cs 3) | Box 10: Gross proceeds attorney (cs 3)
+          [...amtBox('9', 'Crop insurance proceeds', fmt(d.cropInsurance), 3), ...amtBox('10', 'Gross proceeds paid to an attorney', fmt(d.grossAttorney), 3)],
+          // Row 12 — Box 11 (cs 3) | Box 12 (cs 3) — blank, not collected
+          [...emptyBox('11', 'Fish purchased for resale', 3), ...emptyBox('12', 'Section 409A deferrals', 3)],
+          // Row 13 — Box 13 (cs 3) | Box 14 (cs 3) — blank
+          [...emptyBox('13', 'Excess golden parachute payments', 3), ...emptyBox('14', 'Nonqualified deferred compensation', 3)],
+          // Row 14 — Box 15: State tax (cs 2) | Box 16: State/ID (cs 2) | Box 17: State income (cs 2)
+          [
+            ...amtBox('15', 'State tax withheld', fmt(d.stateTaxWithheld), 2, 10),
+            ...amtBox('16', "State/Payer's state no.", `${d.stateCode || ''}   ${d.stateIdNo || ''}`, 2, 9),
+            ...emptyBox('17', 'State income', 2),
+          ],
+        ],
+      },
+      layout: FORM_LAYOUT,
+      marginBottom: 5,
+    },
+    { text: MISC_DISCLAIMER, fontSize: 6.5, color: '#555555', marginBottom: 4 },
+  ]
+}
+
+export function buildMISC(d: Form1099MISCData): Record<string, unknown> {
   return {
     defaultStyle: { font: 'Helvetica', fontSize: 9, color: DARK },
     pageSize: 'LETTER',
     pageMargins: [36, 36, 36, 36],
     content: [
-      { text: `Form 1099-MISC — Tax Year ${d.taxYear}`, fontSize: 14, bold: true, marginBottom: 3 },
-      { text: 'Miscellaneous Information', color: GRAY, fontSize: 8, marginBottom: 14 },
-      {
-        columns: [
-          {
-            stack: [sectionLabel('PAYER'), { text: d.payerName, bold: true, fontSize: 10 }, { text: d.payerAddress, fontSize: 9 }, { text: d.payerCity, fontSize: 9 }, { text: `EIN: ${d.payerEIN}`, fontSize: 9 }],
-            margin: [0, 0, 8, 0],
-          },
-          {
-            stack: [sectionLabel('RECIPIENT'), { text: d.recipientName, bold: true, fontSize: 10 }, { text: d.recipientAddress, fontSize: 9 }, { text: d.recipientCity, fontSize: 9 }, { text: `TIN: ${d.recipientTIN}`, fontSize: 9 }],
-          },
-        ],
-        marginBottom: 14,
-      },
-      ...boxes.map(([label, val]) => ({ stack: [sectionLabel(label), { text: fmt(val), fontSize: 13, bold: true }], marginBottom: 8 })),
-      { text: 'FOR PRINT & MAIL ONLY — NOT FOR E-FILE', fontSize: 7, color: LIGHT },
+      ...miscCopy(d, 'Copy B', 'For Recipient'),
+      { text: '', pageBreak: 'before' },
+      ...miscCopy(d, 'Copy C', "For Payer's Records"),
     ],
   }
 }
