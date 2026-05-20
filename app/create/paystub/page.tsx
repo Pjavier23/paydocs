@@ -9,60 +9,136 @@ import { createClient } from '@/lib/supabase'
 
 type Freq = 'weekly' | 'biweekly' | 'semimonthly' | 'monthly'
 
+const PERIODS: Record<Freq, number> = { weekly: 52, biweekly: 26, semimonthly: 24, monthly: 12 }
+const FREQ_LABEL: Record<Freq, string> = { weekly: 'Weekly', biweekly: 'Bi-weekly', semimonthly: 'Semi-monthly', monthly: 'Monthly' }
+
+// ── Tax helpers ────────────────────────────────────────────────────────────
+
+function brackets(taxable: number, table: [number, number][]): number {
+  let tax = 0, prev = 0
+  for (const [cap, rate] of table) {
+    if (taxable <= prev) break
+    tax += (Math.min(taxable, cap) - prev) * rate
+    prev = cap
+  }
+  return tax
+}
+
+// 2025 IRS Publication 15-T percentage method
+function calcFederalTax(gross: number, filing: string, freq: Freq): number {
+  if (gross <= 0) return 0
+  const n = PERIODS[freq]
+  const annual = gross * n
+  const stdDed = filing === 'Married' ? 30000 : filing === 'Head of Household' ? 22500 : 15000
+  const taxable = Math.max(0, annual - stdDed)
+  const table: [number, number][] = filing === 'Married'
+    ? [[23850,.10],[96950,.12],[206700,.22],[394600,.24],[501050,.32],[751600,.35],[Infinity,.37]]
+    : [[11925,.10],[48475,.12],[103350,.22],[197300,.24],[250525,.32],[626350,.35],[Infinity,.37]]
+  return parseFloat(Math.max(0, brackets(taxable, table) / n).toFixed(2))
+}
+
+// Simplified state withholding using 2024/2025 rates
+function calcStateTax(gross: number, state: string, freq: Freq): number {
+  if (gross <= 0) return 0
+  const n = PERIODS[freq]
+  const annual = gross * n
+  const s = state.toUpperCase().trim()
+  if (['AK','FL','NV','SD','TX','WY','WA','TN','NH'].includes(s)) return 0
+  const flat: Record<string, number> = {
+    AZ:.025, CO:.044, GA:.0549, IL:.0495, IN:.0305, KY:.040,
+    MA:.050, MI:.0425, NC:.045, PA:.0307, SC:.065, UT:.0465, VA:.0575,
+  }
+  if (flat[s] !== undefined) return parseFloat((annual * flat[s] / n).toFixed(2))
+  let annualTax = 0
+  switch (s) {
+    case 'CA':
+      annualTax = brackets(annual, [[10756,.01],[25499,.02],[40245,.04],[55866,.06],[70606,.08],[360659,.093],[Infinity,.103]])
+      break
+    case 'MD':
+      annualTax = brackets(annual, [[1000,.02],[2000,.03],[3000,.04],[100000,.0475],[125000,.05],[150000,.0525],[250000,.055],[Infinity,.0575]])
+      break
+    case 'NJ':
+      annualTax = brackets(annual, [[20000,.014],[35000,.0175],[40000,.035],[75000,.05525],[500000,.0637],[Infinity,.1075]])
+      break
+    case 'NY':
+      annualTax = brackets(annual, [[17150,.04],[23600,.045],[27900,.0525],[161550,.055],[323200,.06],[Infinity,.0685]])
+      break
+    case 'OH':
+      annualTax = brackets(annual, [[26050,0],[100000,.0275],[115300,.03226],[Infinity,.0399]])
+      break
+    case 'WI':
+      annualTax = brackets(annual, [[14320,.0354],[28640,.0465],[315310,.053],[Infinity,.0765]])
+      break
+    default:
+      annualTax = annual * 0.05
+  }
+  return parseFloat(Math.max(0, annualTax / n).toFixed(2))
+}
+
+// ── Date helpers ───────────────────────────────────────────────────────────
+
+const iso = (d: Date) => d.toISOString().split('T')[0]
+const addDays = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+
+function nextFriAfter(d: Date): Date {
+  const r = addDays(d, 1)
+  const dow = r.getDay()
+  if (dow !== 5) r.setDate(r.getDate() + ((5 - dow + 7) % 7))
+  return r
+}
+
+// Given a start date and frequency, compute end date and pay date
+function calcEndFromStart(start: string, freq: Freq): { end: string; payDate: string } {
+  const s = new Date(start + 'T12:00:00')
+  switch (freq) {
+    case 'weekly':
+      return { end: iso(addDays(s, 6)), payDate: iso(nextFriAfter(addDays(s, 6))) }
+    case 'biweekly':
+      return { end: iso(addDays(s, 13)), payDate: iso(nextFriAfter(addDays(s, 13))) }
+    case 'semimonthly': {
+      const d = s.getDate()
+      if (d <= 15) return { end: iso(new Date(s.getFullYear(), s.getMonth(), 15)), payDate: iso(new Date(s.getFullYear(), s.getMonth(), 20)) }
+      return { end: iso(new Date(s.getFullYear(), s.getMonth() + 1, 0)), payDate: iso(new Date(s.getFullYear(), s.getMonth() + 1, 5)) }
+    }
+    case 'monthly':
+      return { end: iso(new Date(s.getFullYear(), s.getMonth() + 1, 0)), payDate: iso(new Date(s.getFullYear(), s.getMonth() + 1, 5)) }
+  }
+}
+
+// Quick-fill: most recent completed period relative to today
 function calcPayPeriod(freq: Freq): { start: string; end: string; payDate: string } {
   const today = new Date()
-  const iso = (d: Date) => d.toISOString().split('T')[0]
-  const add = (d: Date, n: number) => { const r = new Date(d); r.setDate(r.getDate() + n); return r }
-  const dow = today.getDay() // 0=Sun … 6=Sat
-
-  // Most recent Friday
-  const lastFri = add(today, -(((dow + 2) % 7) + 1))
-  // Upcoming Friday (or today if Friday)
-  const nextFri = dow === 5 ? today : add(today, (5 - dow + 7) % 7)
-
+  const dow = today.getDay()
+  const lastFri = addDays(today, -(((dow + 2) % 7) + 1))
   if (freq === 'weekly') {
-    return { start: iso(add(lastFri, -6)), end: iso(lastFri), payDate: iso(nextFri) }
+    const start = iso(addDays(lastFri, -6))
+    return { start, ...calcEndFromStart(start, freq) }
   }
   if (freq === 'biweekly') {
-    return { start: iso(add(lastFri, -13)), end: iso(lastFri), payDate: iso(nextFri) }
+    const start = iso(addDays(lastFri, -13))
+    return { start, ...calcEndFromStart(start, freq) }
   }
   if (freq === 'semimonthly') {
-    const d = today.getDate()
-    const y = today.getFullYear(), m = today.getMonth()
-    if (d <= 15) {
-      // First half — fill previous second half (16–EOM)
-      const lastM = m === 0 ? 11 : m - 1
-      const lastY = m === 0 ? y - 1 : y
-      return {
-        start: iso(new Date(lastY, lastM, 16)),
-        end: iso(new Date(y, m, 0)),
-        payDate: iso(new Date(y, m, 1)),
-      }
-    } else {
-      return {
-        start: iso(new Date(y, m, 1)),
-        end: iso(new Date(y, m, 15)),
-        payDate: iso(new Date(y, m, 20)),
-      }
-    }
+    const d = today.getDate(), y = today.getFullYear(), m = today.getMonth()
+    const start = d <= 15
+      ? iso(new Date(m === 0 ? y - 1 : y, m === 0 ? 11 : m - 1, 16))
+      : iso(new Date(y, m, 1))
+    return { start, ...calcEndFromStart(start, freq) }
   }
   // monthly
   const y = today.getFullYear(), m = today.getMonth()
-  const lastM = m === 0 ? 11 : m - 1
-  const lastY = m === 0 ? y - 1 : y
-  return {
-    start: iso(new Date(lastY, lastM, 1)),
-    end: iso(new Date(y, m, 0)),
-    payDate: iso(new Date(y, m, 5)),
-  }
+  const start = iso(new Date(m === 0 ? y - 1 : y, m === 0 ? 11 : m - 1, 1))
+  return { start, ...calcEndFromStart(start, freq) }
 }
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 const DEFAULT: PaystubData = {
   companyName: '', companyAddress: '', companyCity: '', companyEIN: '',
   empName: '', empAddress: '', empCity: '', empSSN: '',
   empFilingStatus: 'Single',
   payPeriodStart: '', payPeriodEnd: '', payDate: '', checkNumber: '',
-  payType: 'hourly',
+  payType: 'hourly', payFrequency: 'biweekly',
   hourlyRate: 0, hoursWorked: 80, overtimeHours: 0, overtimeRate: 0, grossPay: 0,
   federalTax: 0, stateTax: 0, stateCode: 'MD',
   socialSecurity: 0, medicare: 0, healthInsurance: 0, otherDeduction: 0, otherDeductionLabel: '',
@@ -88,8 +164,7 @@ export default function PaystubFormPage() {
         body: JSON.stringify({ type: 'paystub', data }),
       })
       if (!res.ok) throw new Error('Preview failed')
-      const blob = await res.blob()
-      window.open(URL.createObjectURL(blob), '_blank')
+      window.open(URL.createObjectURL(await res.blob()), '_blank')
     } catch {
       alert('Could not generate preview. Please try again.')
     } finally {
@@ -99,7 +174,7 @@ export default function PaystubFormPage() {
 
   const applyFreq = (freq: Freq) => {
     const { start, end, payDate } = calcPayPeriod(freq)
-    setData(prev => ({ ...prev, payPeriodStart: start, payPeriodEnd: end, payDate }))
+    setData(prev => ({ ...prev, payFrequency: freq, payPeriodStart: start, payPeriodEnd: end, payDate }))
   }
 
   const set = (field: keyof PaystubData) => (
@@ -109,22 +184,41 @@ export default function PaystubFormPage() {
     setData((prev) => ({ ...prev, [field]: val }))
   }
 
-  // Auto-calc for hourly mode
+  // When start date changes, auto-update end + payDate based on selected frequency
+  useEffect(() => {
+    if (!data.payPeriodStart) return
+    const freq = (data.payFrequency || 'biweekly') as Freq
+    const { end, payDate } = calcEndFromStart(data.payPeriodStart, freq)
+    setData(prev => {
+      if (prev.payPeriodEnd === end && prev.payDate === payDate) return prev
+      return { ...prev, payPeriodEnd: end, payDate }
+    })
+  }, [data.payPeriodStart, data.payFrequency])
+
+  // Auto-calc gross + FICA for hourly mode
   useEffect(() => {
     if (data.payType !== 'hourly') return
     const gross = data.hourlyRate * data.hoursWorked + data.overtimeHours * (data.overtimeRate || data.hourlyRate * 1.5)
     const ss = parseFloat((gross * 0.062).toFixed(2))
     const medicare = parseFloat((gross * 0.0145).toFixed(2))
-    setData((prev) => ({ ...prev, grossPay: gross, socialSecurity: ss, medicare }))
+    setData(prev => ({ ...prev, grossPay: gross, socialSecurity: ss, medicare }))
   }, [data.hourlyRate, data.hoursWorked, data.overtimeHours, data.overtimeRate, data.payType])
 
-  // Auto-calc SS/Medicare for salary mode
+  // Auto-calc FICA for salary mode
   useEffect(() => {
     if (data.payType !== 'salary') return
     const ss = parseFloat((data.grossPay * 0.062).toFixed(2))
     const medicare = parseFloat((data.grossPay * 0.0145).toFixed(2))
-    setData((prev) => ({ ...prev, socialSecurity: ss, medicare }))
+    setData(prev => ({ ...prev, socialSecurity: ss, medicare }))
   }, [data.grossPay, data.payType])
+
+  // Auto-calc federal + state withholding whenever relevant inputs change
+  useEffect(() => {
+    const freq = (data.payFrequency || 'biweekly') as Freq
+    const fed = calcFederalTax(data.grossPay, data.empFilingStatus, freq)
+    const st = calcStateTax(data.grossPay, data.stateCode, freq)
+    setData(prev => ({ ...prev, federalTax: fed, stateTax: st }))
+  }, [data.grossPay, data.empFilingStatus, data.stateCode, data.payFrequency])
 
   const totalDed = data.federalTax + data.stateTax + data.socialSecurity + data.medicare + data.healthInsurance + data.otherDeduction
   const netPay = data.grossPay - totalDed
@@ -256,25 +350,40 @@ export default function PaystubFormPage() {
           {/* Pay Period */}
           <div className="card">
             <div className="section-title">{t('pay_period')}</div>
-            {/* Quick-fill frequency presets */}
-            <div className="mb-3">
-              <label className="label">Quick-fill pay period</label>
+
+            {/* Frequency presets */}
+            <div className="mb-4">
+              <label className="label">Pay Frequency</label>
               <div className="flex flex-wrap gap-2">
-                {(['weekly', 'biweekly', 'semimonthly', 'monthly'] as Freq[]).map(freq => (
-                  <button
-                    key={freq}
-                    type="button"
-                    onClick={() => applyFreq(freq)}
-                    className="px-3 py-1.5 rounded border border-gray-200 font-mono text-xs text-gray-600 hover:border-ink hover:text-ink active:scale-[0.97] transition-all"
-                  >
-                    {freq === 'weekly' ? 'Weekly' : freq === 'biweekly' ? 'Bi-weekly' : freq === 'semimonthly' ? 'Semi-monthly' : 'Monthly'}
-                  </button>
-                ))}
+                {(['weekly', 'biweekly', 'semimonthly', 'monthly'] as Freq[]).map(freq => {
+                  const active = data.payFrequency === freq
+                  return (
+                    <button
+                      key={freq}
+                      type="button"
+                      onClick={() => applyFreq(freq)}
+                      className={`px-3 py-1.5 rounded border font-mono text-xs transition-all active:scale-[0.97] ${
+                        active
+                          ? 'bg-ink text-white border-ink'
+                          : 'border-gray-200 text-gray-600 hover:border-ink hover:text-ink'
+                      }`}
+                    >
+                      {FREQ_LABEL[freq]}
+                    </button>
+                  )
+                })}
               </div>
-              <p className="font-mono text-[10px] text-gray-400 mt-1.5">Auto-fills dates based on most recent completed period</p>
+              <p className="font-mono text-[10px] text-gray-400 mt-1.5">
+                {lang === 'en' ? 'Tap to auto-fill dates for the most recent completed period' : 'Toca para auto-completar fechas del período más reciente'}
+              </p>
             </div>
+
+            {/* Dates — end + payDate auto-update when start changes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label={t('pay_period_start')} value={data.payPeriodStart} onChange={set('payPeriodStart')} type="date" />
+              <div>
+                <FormField label={t('pay_period_start')} value={data.payPeriodStart} onChange={set('payPeriodStart')} type="date" />
+                <p className="font-mono text-[10px] text-gray-400 mt-1">End &amp; pay date update automatically</p>
+              </div>
               <FormField label={t('pay_period_end')} value={data.payPeriodEnd} onChange={set('payPeriodEnd')} type="date" />
               <FormField label={t('pay_date')} value={data.payDate} onChange={set('payDate')} type="date" />
               <FormField label={t('check_number')} value={data.checkNumber} onChange={set('checkNumber')} placeholder="#00001" />
@@ -310,15 +419,38 @@ export default function PaystubFormPage() {
           {/* Deductions */}
           <div className="card">
             <div className="section-title">{t('deductions')}</div>
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-100 rounded">
+              <p className="font-mono text-[10px] text-blue-700 uppercase tracking-wider">
+                {lang === 'en'
+                  ? `Auto-estimated · ${FREQ_LABEL[data.payFrequency as Freq] ?? 'Bi-weekly'} · ${data.empFilingStatus} · ${data.stateCode || 'MD'} — edit any field to override`
+                  : `Auto-estimado · ${FREQ_LABEL[data.payFrequency as Freq] ?? 'Quincenal'} · ${data.empFilingStatus} · ${data.stateCode || 'MD'} — edita para ajustar`}
+              </p>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <FormField label={t('federal_tax')} value={data.federalTax} onChange={set('federalTax')} type="number" />
+              <div>
+                <FormField label={t('federal_tax')} value={data.federalTax} onChange={set('federalTax')} type="number" />
+              </div>
               <div>
                 <label className="label">{t('state')}</label>
-                <input value={data.stateCode} onChange={set('stateCode') as React.ChangeEventHandler<HTMLInputElement>} className="input-field" placeholder="MD" maxLength={2} />
+                <input
+                  value={data.stateCode}
+                  onChange={set('stateCode') as React.ChangeEventHandler<HTMLInputElement>}
+                  className="input-field"
+                  placeholder="MD"
+                  maxLength={2}
+                />
               </div>
-              <FormField label={t('state_tax')} value={data.stateTax} onChange={set('stateTax')} type="number" />
-              <FormField label={t('social_security')} value={data.socialSecurity} onChange={set('socialSecurity')} type="number" readOnly />
-              <FormField label={t('medicare')} value={data.medicare} onChange={set('medicare')} type="number" readOnly />
+              <div>
+                <FormField label={t('state_tax')} value={data.stateTax} onChange={set('stateTax')} type="number" />
+              </div>
+              <div>
+                <FormField label={t('social_security')} value={data.socialSecurity} onChange={set('socialSecurity')} type="number" />
+                <p className="font-mono text-[10px] text-gray-400 mt-1">6.2% of gross</p>
+              </div>
+              <div>
+                <FormField label={t('medicare')} value={data.medicare} onChange={set('medicare')} type="number" />
+                <p className="font-mono text-[10px] text-gray-400 mt-1">1.45% of gross</p>
+              </div>
               <FormField label={t('health_insurance')} value={data.healthInsurance} onChange={set('healthInsurance')} type="number" />
               <FormField label={t('other_label')} value={data.otherDeductionLabel} onChange={set('otherDeductionLabel')} />
               <FormField label={t('other_deduction')} value={data.otherDeduction} onChange={set('otherDeduction')} type="number" />
@@ -368,12 +500,7 @@ export default function PaystubFormPage() {
         <button onClick={handlePreview} disabled={previewing} aria-busy={previewing} className="shrink-0 px-3 py-2.5 rounded border border-gray-300 font-mono text-sm text-gray-600 hover:border-ink active:scale-[0.97] transition-all">
           {previewing ? '…' : '👁'}
         </button>
-        <button
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          aria-busy={loading}
-          className="btn-primary shrink-0"
-        >
+        <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary shrink-0">
           {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : `${t('continue_payment')} →`}
         </button>
       </div>

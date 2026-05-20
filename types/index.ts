@@ -53,6 +53,7 @@ export interface PaystubData {
   payDate: string
   checkNumber: string
   payType: 'hourly' | 'salary'
+  payFrequency: 'weekly' | 'biweekly' | 'semimonthly' | 'monthly'
   // Earnings
   hourlyRate: number
   hoursWorked: number
