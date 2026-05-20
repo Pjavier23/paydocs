@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { createRequire } from 'module'
 import type { PaystubData, Form1099NECData, Form1099MISCData, InvoiceData } from '@/types'
-
-const _require = createRequire(import.meta.url)
-// Load React and react-pdf from the same node_modules instance to avoid React element mismatch
-const React = _require('react') as typeof import('react')
-const { renderToBuffer, Document, Page, Text, View, StyleSheet } = _require('@react-pdf/renderer') as typeof import('@react-pdf/renderer')
+import React from 'react'
+import { renderToBuffer, Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 
 const fmt = (n: number) => `$${(n || 0).toFixed(2)}`
 
@@ -317,7 +313,10 @@ export async function GET(req: NextRequest) {
     } else {
       element = React.createElement(MISC_PDF, { d: doc.data_json as Form1099MISCData })
     }
-    pdfBuffer = await renderToBuffer(element as React.ReactElement<any>)
+    // react-pdf's renderToBuffer expects a ReactElement but the concrete type
+    // depends on which PDF component was chosen above. The union type is safe
+    // at runtime; we widen to ReactElement to satisfy the library's signature.
+    pdfBuffer = await renderToBuffer(element as React.ReactElement)
   } catch (err) {
     console.error('[generate-pdf]', err)
     return new NextResponse('PDF generation failed', { status: 500 })

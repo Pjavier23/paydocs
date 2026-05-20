@@ -153,7 +153,7 @@ export default function Form1099MISCPage() {
             </div>
           </div>
 
-          <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary w-full">
             {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : t('continue_payment')} →
           </button>
           <p className="font-mono text-[10px] text-center text-gray-400 uppercase tracking-wider">
@@ -168,8 +168,8 @@ export default function Form1099MISCPage() {
           <div className="font-mono text-[10px] uppercase tracking-wider text-gray-400">1099-MISC · {data.taxYear}</div>
           <div className="font-display text-xl text-ink truncate">{fmt(totalIncome)}</div>
         </div>
-        <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-          {loading ? '...' : `${t('continue_payment')} →`}
+        <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary shrink-0">
+          {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : `${t('continue_payment')} →`}
         </button>
       </div>
     </div>

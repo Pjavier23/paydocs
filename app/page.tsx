@@ -84,15 +84,17 @@ export default function HomePage() {
               <div className="font-mono text-xs text-gray-400 mb-4 flex-1">
                 {lang === 'en' ? doc.desc_en : doc.desc_es}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-sm font-medium text-ink">{doc.price}</span>
-                <span className="font-mono text-xs text-gray-300 group-hover:text-accent transition-colors">→</span>
-              </div>
               {doc.badge && (
-                <div className="mt-3 font-mono text-[9px] uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                <div className="mb-3 font-mono text-[9px] uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-1 rounded self-start">
                   {doc.badge}
                 </div>
               )}
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <span className="font-mono text-sm font-medium text-ink">{doc.price}</span>
+                <span className="font-mono text-xs text-gray-500 group-hover:text-ink transition-colors">
+                  {lang === 'en' ? 'Start →' : 'Empezar →'}
+                </span>
+              </div>
             </Link>
           ))}
         </div>

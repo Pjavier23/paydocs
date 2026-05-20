@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getUserFromToken } from '@/lib/supabase-admin'
 import OpenAI from 'openai'
 
+interface ExtractedData {
+  vendor?: string | null
+  amount?: number | null
+  date?: string | null
+  is_income?: boolean
+  category?: string | null
+  description?: string | null
+  doc_type?: string | null
+  tax_deductible?: boolean
+}
+
 function getToken(req: NextRequest) {
   const auth = req.headers.get('authorization') || ''
   return auth.startsWith('Bearer ') ? auth.slice(7) : null
@@ -72,9 +83,9 @@ If you can't determine a value, use null. For is_income: true if this is money r
     })
 
     const raw = completion.choices[0]?.message?.content || '{}'
-    let extracted: any = {}
+    let extracted: ExtractedData = {}
     try {
-      extracted = JSON.parse(raw)
+      extracted = JSON.parse(raw) as ExtractedData
     } catch {
       await supabase
         .from('bk_documents')
@@ -124,12 +135,13 @@ If you can't determine a value, use null. For is_income: true if this is money r
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     return NextResponse.json({ document: updated, extracted })
-  } catch (err: any) {
+  } catch (err: unknown) {
     await supabase
       .from('bk_documents')
       .update({ ai_processed: false, ai_summary: 'AI extraction failed' })
       .eq('id', document_id)
 
-    return NextResponse.json({ error: `OpenAI error: ${err.message}` }, { status: 500 })
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: `OpenAI error: ${message}` }, { status: 500 })
   }
 }

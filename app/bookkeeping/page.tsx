@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import type { BkClient } from '@/types'
 
 const INDUSTRIES = [
   { value: 'contractor', label: '🔨 General Contractor' },
@@ -25,7 +26,7 @@ export default function BookkeepingDashboard() {
   const supabase = createClient()
 
   const [loading, setLoading] = useState(true)
-  const [clients, setClients] = useState<any[]>([])
+  const [clients, setClients] = useState<BkClient[]>([])
   const [error, setError] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [saving, setSaving] = useState(false)

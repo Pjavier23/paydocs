@@ -139,3 +139,71 @@ export interface Document {
 }
 
 export type Language = 'en' | 'es'
+
+// ── Bookkeeping types ──────────────────────────────────────────────────────
+
+export type SubscriptionStatus = 'trial' | 'active' | 'cancelled' | 'pending' | 'past_due'
+
+export type DocCategory =
+  | 'materials'
+  | 'labor'
+  | 'equipment'
+  | 'office'
+  | 'travel'
+  | 'meals'
+  | 'utilities'
+  | 'other'
+
+export type BkDocType = 'receipt' | 'invoice' | 'bank_statement' | 'other'
+
+export type TaxEventType = 'quarterly_estimated' | 'annual_filing' | 'other'
+
+export interface BkClient {
+  id: string
+  owner_id: string
+  business_name: string
+  contact_name: string | null
+  email: string | null
+  phone: string | null
+  industry: string | null
+  monthly_fee: number
+  subscription_status: SubscriptionStatus
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
+  invite_token: string | null
+  onboarded_at: string | null
+  created_at: string
+  // Enriched fields added by the /api/bookkeeping/clients GET handler
+  doc_count?: number
+  last_upload?: string | null
+}
+
+export interface BkDocument {
+  id: string
+  client_id: string
+  uploaded_by: string
+  doc_type: BkDocType
+  file_url: string
+  vendor: string | null
+  amount: number | null
+  doc_date: string | null
+  category: DocCategory | null
+  description: string | null
+  is_income: boolean
+  tax_deductible: boolean
+  ai_processed: boolean
+  ai_summary: string | null
+  created_at: string
+}
+
+export interface BkTaxEvent {
+  id: string
+  client_id: string
+  event_type: TaxEventType
+  due_date: string
+  title: string
+  description: string | null
+  completed: boolean
+  completed_at: string | null
+  created_at: string
+}

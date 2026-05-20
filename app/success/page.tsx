@@ -14,7 +14,9 @@ function SuccessContent() {
     <div className="min-h-screen bg-paper flex items-center justify-center px-6">
       <div className="w-full max-w-md text-center">
         <div className="card border-ink">
-          <div className="text-4xl mb-4">✓</div>
+          <div className="w-14 h-14 bg-accent rounded-full flex items-center justify-center mx-auto mb-4" aria-hidden="true">
+            <span className="text-ink text-2xl font-bold">✓</span>
+          </div>
           <h1 className="font-display text-3xl text-ink mb-2">
             {lang === 'en' ? 'Payment Successful' : 'Pago Exitoso'}
           </h1>
@@ -27,7 +29,7 @@ function SuccessContent() {
           {sessionId ? (
             <a
               href={`/api/generate-pdf?sessionId=${sessionId}`}
-              className="btn-accent w-full block text-center mb-3"
+              className="btn-accent w-full mb-3"
             >
               {lang === 'en' ? 'Download PDF' : 'Descargar PDF'}
             </a>
@@ -37,7 +39,7 @@ function SuccessContent() {
             </p>
           )}
 
-          <Link href="/dashboard" className="btn-secondary w-full block text-center mb-3">
+          <Link href="/dashboard" className="btn-secondary w-full mb-3">
             {lang === 'en' ? 'My Documents' : 'Mis Documentos'}
           </Link>
           <Link href="/" className="font-mono text-xs text-gray-400 hover:text-ink transition-colors">

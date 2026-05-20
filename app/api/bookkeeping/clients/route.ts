@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getUserFromToken } from '@/lib/supabase-admin'
+import type { BkClient } from '@/types'
 
 function getToken(req: NextRequest) {
   const auth = req.headers.get('authorization') || ''
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 
   // Attach last upload date + doc count for each client
   const enriched = await Promise.all(
-    (clients || []).map(async (client: any) => {
+    (clients as BkClient[] || []).map(async (client) => {
       const { data: docs, count } = await supabase
         .from('bk_documents')
         .select('created_at', { count: 'exact' })

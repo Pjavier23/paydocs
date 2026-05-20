@@ -120,16 +120,19 @@ export default function PaystubFormPage() {
 
       {/* Mobile summary toggle */}
       <button
-        className="lg:hidden w-full mb-4 card border-ink flex items-center justify-between"
+        className="lg:hidden w-full mb-4 card border-ink flex items-center justify-between hover:border-ink/60 active:scale-[0.99] transition-all"
+        style={{ minHeight: '56px' }}
         onClick={() => setShowSummary(!showSummary)}
+        aria-expanded={showSummary}
+        aria-controls="mobile-summary"
       >
         <div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-gray-400">{t('net_pay')}</div>
           <div className="font-display text-2xl text-ink">{fmt(netPay)}</div>
         </div>
-        <span className="font-mono text-xs text-gray-400">{showSummary ? '▲ Hide' : '▼ Show'}</span>
+        <span className="font-mono text-xs text-gray-500">{showSummary ? '▲ Hide' : '▼ Show'}</span>
       </button>
-      {showSummary && <div className="lg:hidden mb-4"><SummaryCard /></div>}
+      {showSummary && <div id="mobile-summary" className="lg:hidden mb-4"><SummaryCard /></div>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* FORM */}
@@ -209,7 +212,7 @@ export default function PaystubFormPage() {
             )}
             <div className="mt-3 p-3 bg-gray-50 rounded border border-gray-100 flex items-center justify-between">
               <span className="font-mono text-xs text-gray-500 uppercase tracking-wider">{t('gross_pay')}</span>
-              <span className="font-mono text-sm font-medium text-accent">{fmt(data.grossPay)}</span>
+              <span className="font-mono text-sm font-medium text-ink">{fmt(data.grossPay)}</span>
             </div>
           </div>
 
@@ -248,7 +251,7 @@ export default function PaystubFormPage() {
         {/* SIDEBAR — desktop only */}
         <div className="hidden lg:block lg:sticky lg:top-6 h-fit space-y-4">
           <SummaryCard />
-          <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary w-full">
             {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : t('continue_payment')} →
           </button>
           <p className="font-mono text-[10px] text-center text-gray-400 uppercase tracking-wider">
@@ -266,9 +269,10 @@ export default function PaystubFormPage() {
         <button
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="btn-primary shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-busy={loading}
+          className="btn-primary shrink-0"
         >
-          {loading ? '...' : `${t('continue_payment')} →`}
+          {loading ? (lang === 'en' ? 'Saving...' : 'Guardando...') : `${t('continue_payment')} →`}
         </button>
       </div>
     </div>

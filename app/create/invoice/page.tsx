@@ -166,11 +166,11 @@ export default function InvoicePage() {
               <div className="sm:col-span-1" />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {data.items.map((item) => (
-                <div key={item.id} className="grid grid-cols-12 gap-2 items-start">
-                  {/* Description */}
-                  <div className="col-span-12 sm:col-span-5">
+                <div key={item.id} className="space-y-2 sm:space-y-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-start">
+                  {/* Description — full width on mobile, 5 cols on desktop */}
+                  <div className="sm:col-span-5">
                     <label className="sm:hidden label">Description</label>
                     <input
                       value={item.description}
@@ -179,48 +179,58 @@ export default function InvoicePage() {
                       className="input-field"
                     />
                   </div>
-                  {/* Qty */}
-                  <div className="col-span-4 sm:col-span-2">
-                    <label className="sm:hidden label">Qty</label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="input-field"
-                    />
+
+                  {/* Qty + Rate row on mobile (2-col), individual on desktop */}
+                  <div className="grid grid-cols-2 gap-2 sm:contents">
+                    <div className="sm:col-span-2">
+                      <label className="label">Qty</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, 'quantity', parseFloat(e.target.value) || 0)}
+                        className="input-field"
+                        aria-label="Quantity"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="label">Rate</label>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        value={item.rate}
+                        onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)}
+                        className="input-field"
+                        aria-label="Rate"
+                      />
+                    </div>
                   </div>
-                  {/* Rate */}
-                  <div className="col-span-4 sm:col-span-2">
-                    <label className="sm:hidden label">Rate</label>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      value={item.rate}
-                      onChange={(e) => updateItem(item.id, 'rate', parseFloat(e.target.value) || 0)}
-                      className="input-field"
-                    />
-                  </div>
-                  {/* Amount (read-only) */}
-                  <div className="col-span-3 sm:col-span-2">
-                    <label className="sm:hidden label">Amount</label>
-                    <input
-                      readOnly
-                      value={fmt(item.amount)}
-                      className="input-field bg-gray-50 text-accent font-medium"
-                    />
-                  </div>
-                  {/* Remove */}
-                  <div className="col-span-1 flex items-end pb-0.5">
-                    {data.items.length > 1 && (
-                      <button
-                        onClick={() => removeItem(item.id)}
-                        className="w-full h-[42px] flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors border border-gray-200 rounded"
-                        title="Remove"
-                      >
-                        ×
-                      </button>
-                    )}
+
+                  {/* Amount + Remove row on mobile */}
+                  <div className="flex gap-2 items-end sm:contents">
+                    <div className="flex-1 sm:col-span-2">
+                      <label className="label">Amount</label>
+                      <input
+                        readOnly
+                        value={fmt(item.amount)}
+                        className="input-field bg-gray-50 text-gray-700 font-medium"
+                        aria-label="Amount"
+                      />
+                    </div>
+                    {/* Remove */}
+                    <div className="sm:col-span-1 flex items-end">
+                      {data.items.length > 1 && (
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors border border-gray-200 rounded"
+                          style={{ minHeight: '44px', minWidth: '44px' }}
+                          aria-label="Remove line item"
+                          title="Remove"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -228,7 +238,7 @@ export default function InvoicePage() {
 
             <button
               onClick={addItem}
-              className="mt-4 btn-secondary w-full text-center"
+              className="mt-4 btn-secondary w-full"
             >
               + Add Line Item
             </button>
@@ -320,7 +330,7 @@ export default function InvoicePage() {
             </div>
           </div>
 
-          <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary w-full disabled:opacity-40 disabled:cursor-not-allowed">
+          <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary w-full">
             {loading ? 'Saving...' : 'Continue to Payment →'}
           </button>
           <p className="font-mono text-[10px] text-center text-gray-400 uppercase tracking-wider">
@@ -335,8 +345,8 @@ export default function InvoicePage() {
           <div className="font-mono text-[10px] uppercase tracking-wider text-gray-400">Invoice Total</div>
           <div className="font-display text-xl text-ink">{data.currency} {fmt(total)}</div>
         </div>
-        <button onClick={handleSubmit} disabled={!canSubmit} className="btn-primary shrink-0 disabled:opacity-40 disabled:cursor-not-allowed">
-          {loading ? '...' : 'Pay $2.99 →'}
+        <button onClick={handleSubmit} disabled={!canSubmit} aria-busy={loading} className="btn-primary shrink-0">
+          {loading ? 'Saving...' : 'Pay $2.99 →'}
         </button>
       </div>
     </div>

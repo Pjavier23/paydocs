@@ -90,15 +90,17 @@ function CheckoutContent() {
           <button
             onClick={handleCheckout}
             disabled={loading}
+            aria-busy={loading}
             className="btn-accent w-full mt-2"
           >
             {loading
-              ? (lang === 'en' ? 'Redirecting...' : 'Redirigiendo...')
+              ? (lang === 'en' ? 'Redirecting to Stripe...' : 'Redirigiendo a Stripe...')
               : `${t('pay_download')} ${price}`}
           </button>
 
           <button
             onClick={() => router.back()}
+            disabled={loading}
             className="btn-secondary w-full mt-3"
           >
             ← {t('back')}

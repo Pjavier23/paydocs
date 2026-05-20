@@ -8,6 +8,19 @@ interface FormFieldProps {
   readOnly?: boolean
   placeholder?: string
   hint?: string
+  autoComplete?: string
+}
+
+/** Returns the appropriate inputMode for a given input type */
+function resolveInputMode(type: string): React.HTMLAttributes<HTMLInputElement>['inputMode'] | undefined {
+  switch (type) {
+    case 'number': return 'decimal'
+    case 'email': return 'email'
+    case 'tel': return 'tel'
+    case 'url': return 'url'
+    case 'search': return 'search'
+    default: return undefined
+  }
 }
 
 export function FormField({
@@ -18,6 +31,7 @@ export function FormField({
   readOnly = false,
   placeholder = '',
   hint,
+  autoComplete,
 }: FormFieldProps) {
   return (
     <div>
@@ -28,8 +42,10 @@ export function FormField({
         onChange={onChange as React.ChangeEventHandler<HTMLInputElement>}
         readOnly={readOnly}
         placeholder={placeholder}
-        inputMode={type === 'number' ? 'decimal' : undefined}
-        className={`input-field ${readOnly ? 'bg-gray-50 text-accent font-medium' : ''}`}
+        inputMode={resolveInputMode(type)}
+        autoComplete={autoComplete}
+        aria-label={label}
+        className="input-field"
       />
       {hint && <p className="mt-1 font-mono text-[10px] text-gray-400">{hint}</p>}
     </div>

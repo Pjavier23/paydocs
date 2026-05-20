@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, getUserFromToken } from '@/lib/supabase-admin'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' as any })
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' })
 
 function getToken(req: NextRequest) {
   const auth = req.headers.get('authorization') || ''
@@ -50,21 +50,20 @@ export async function POST(req: NextRequest) {
       customerId = customer.id
     }
 
-    // Create subscription — use monthly_fee from client record (in dollars → cents)
+    // Create subscription — use monthly_fee from client record (in dollars → cents).
+    // stripe.subscriptions.create items do not support inline price_data + product_data
+    // in the SDK types, so we create an ad-hoc Price first, then reference it.
     const unitAmount = Math.round((client.monthly_fee || 100) * 100)
+    const price = await stripe.prices.create({
+      currency: 'usd',
+      unit_amount: unitAmount,
+      recurring: { interval: 'month' },
+      product_data: { name: 'PayDocs Bookkeeping' },
+    })
+
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
-      items: [
-        {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          price_data: {
-            currency: 'usd',
-            unit_amount: unitAmount,
-            recurring: { interval: 'month' },
-            product_data: { name: 'PayDocs Bookkeeping' },
-          } as any,
-        },
-      ],
+      items: [{ price: price.id }],
       metadata: { client_id: client.id },
       payment_behavior: 'default_incomplete',
       expand: ['latest_invoice.payment_intent'],
@@ -90,13 +89,23 @@ export async function POST(req: NextRequest) {
       })
       .eq('id', client_id)
 
+    // latest_invoice is expanded, so we access client_secret via a cast.
+    // Stripe types don't expose the expanded payment_intent on the invoice union type.
+    const invoice = subscription.latest_invoice as Stripe.Invoice | null
+    const paymentIntent = invoice?.payment_intent
+    const clientSecret =
+      paymentIntent && typeof paymentIntent === 'object' && 'client_secret' in paymentIntent
+        ? (paymentIntent as Stripe.PaymentIntent).client_secret
+        : null
+
     return NextResponse.json({
       subscription_id: subscription.id,
       customer_id: customerId,
       status: subscription.status,
-      client_secret: (subscription.latest_invoice as any)?.payment_intent?.client_secret || null,
+      client_secret: clientSecret,
     })
-  } catch (err: any) {
-    return NextResponse.json({ error: `Stripe error: ${err.message}` }, { status: 500 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    return NextResponse.json({ error: `Stripe error: ${message}` }, { status: 500 })
   }
 }

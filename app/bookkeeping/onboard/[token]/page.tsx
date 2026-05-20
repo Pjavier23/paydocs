@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import type { BkClient } from '@/types'
 
 type Step = 1 | 2 | 3
 
@@ -16,7 +17,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [clientData, setClientData] = useState<any>(null)
+  const [clientData, setClientData] = useState<BkClient | null>(null)
 
   const [form, setForm] = useState({
     business_name: '',

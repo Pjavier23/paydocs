@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import type { BkClient, BkDocument, BkTaxEvent } from '@/types'
 
 type Tab = 'overview' | 'documents' | 'tax' | 'reports'
 
@@ -33,9 +34,9 @@ export default function ClientDetailPage() {
 
   const [activeTab, setActiveTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(true)
-  const [client, setClient] = useState<any>(null)
-  const [documents, setDocuments] = useState<any[]>([])
-  const [taxEvents, setTaxEvents] = useState<any[]>([])
+  const [client, setClient] = useState<BkClient | null>(null)
+  const [documents, setDocuments] = useState<BkDocument[]>([])
+  const [taxEvents, setTaxEvents] = useState<BkTaxEvent[]>([])
   const [error, setError] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState('')
@@ -54,7 +55,7 @@ export default function ClientDetailPage() {
 
     if (clientRes.ok) {
       const { clients } = await clientRes.json()
-      const found = (clients || []).find((c: any) => c.id === clientId)
+      const found = (clients as BkClient[] || []).find((c) => c.id === clientId)
       if (found) setClient(found)
     }
     if (docsRes.ok) {
@@ -134,9 +135,11 @@ export default function ClientDetailPage() {
   const ytdIncome = ytdDocs.filter(d => d.is_income && d.amount).reduce((s, d) => s + Number(d.amount), 0)
   const ytdExpenses = ytdDocs.filter(d => !d.is_income && d.amount).reduce((s, d) => s + Number(d.amount), 0)
 
-  // Category breakdown
+  // Category breakdown — filter ensures category and amount are non-null
   const categoryTotals = documents
-    .filter(d => !d.is_income && d.amount && d.category)
+    .filter((d): d is typeof d & { category: string; amount: number } =>
+      !d.is_income && d.amount !== null && d.category !== null
+    )
     .reduce((acc: Record<string, number>, d) => {
       acc[d.category] = (acc[d.category] || 0) + Number(d.amount)
       return acc
@@ -449,7 +452,7 @@ export default function ClientDetailPage() {
   )
 }
 
-function TaxEventRow({ event, onToggle, overdue }: { event: any; onToggle: (id: string, completed: boolean) => void; overdue?: boolean }) {
+function TaxEventRow({ event, onToggle, overdue }: { event: BkTaxEvent; onToggle: (id: string, completed: boolean) => void; overdue?: boolean }) {
   return (
     <div className={`card mb-2 flex items-start gap-4 ${event.completed ? 'opacity-50' : ''} ${overdue ? 'border-red-200' : ''}`}>
       <button

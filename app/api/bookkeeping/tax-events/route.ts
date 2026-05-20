@@ -54,14 +54,17 @@ export async function PATCH(req: NextRequest) {
 
   const supabase = createAdminClient()
 
-  // Verify user owns the client this event belongs to
+  // Verify user owns the client this event belongs to.
+  // The Supabase client infers a complex union type for nested selects that doesn't
+  // expose the joined table fields directly, so we cast to a minimal known shape.
   const { data: eventCheck } = await supabase
     .from('bk_tax_events')
     .select('id, bk_clients!inner(owner_id)')
     .eq('id', event_id)
     .single()
 
-  const ownerCheck = eventCheck as any
+  type EventWithClient = { id: string; bk_clients: { owner_id: string } | null }
+  const ownerCheck = eventCheck as EventWithClient | null
   if (!ownerCheck || ownerCheck.bk_clients?.owner_id !== user.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }

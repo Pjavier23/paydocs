@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import type { BkClient, BkDocument, BkTaxEvent } from '@/types'
 
 const CATEGORY_COLORS: Record<string, string> = {
   materials: 'bg-blue-100 text-blue-700',
@@ -19,9 +20,9 @@ export default function ClientSelfView() {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
-  const [clientData, setClientData] = useState<any>(null)
-  const [documents, setDocuments] = useState<any[]>([])
-  const [taxEvents, setTaxEvents] = useState<any[]>([])
+  const [clientData, setClientData] = useState<BkClient | null>(null)
+  const [documents, setDocuments] = useState<BkDocument[]>([])
+  const [taxEvents, setTaxEvents] = useState<BkTaxEvent[]>([])
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'tax'>('overview')
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState('')

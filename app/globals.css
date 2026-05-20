@@ -29,6 +29,13 @@
       font-sans text-sm text-ink placeholder-gray-400
       focus:outline-none focus:border-ink focus:ring-1 focus:ring-ink/10 transition-colors;
     min-height: 44px;
+    /* Prevent iOS zoom on focus (font-size must be >= 16px equivalent) */
+    font-size: max(16px, 0.875rem);
+  }
+
+  /* Read-only fields: muted background, standard text color */
+  .input-field[readonly] {
+    @apply bg-gray-50 text-gray-600 cursor-default;
   }
 
   .label {
@@ -36,21 +43,26 @@
   }
 
   .btn-primary {
-    @apply bg-ink text-accent font-mono text-xs uppercase tracking-widest
-      px-6 py-3.5 rounded transition-all hover:bg-gray-900 active:scale-95;
+    @apply inline-flex items-center justify-center bg-ink text-accent font-mono text-xs
+      uppercase tracking-widest px-6 py-3.5 rounded transition-all
+      hover:bg-gray-900 active:scale-95
+      disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none;
     min-height: 44px;
   }
 
   .btn-secondary {
-    @apply bg-transparent border border-gray-300 text-gray-500 font-mono text-xs
-      uppercase tracking-widest px-6 py-3.5 rounded transition-all
-      hover:border-ink hover:text-ink active:scale-95;
+    @apply inline-flex items-center justify-center bg-transparent border border-gray-300
+      text-gray-500 font-mono text-xs uppercase tracking-widest px-6 py-3.5 rounded
+      transition-all hover:border-ink hover:text-ink active:scale-95
+      disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none;
     min-height: 44px;
   }
 
   .btn-accent {
-    @apply bg-accent text-ink font-mono text-xs font-medium uppercase tracking-widest
-      px-6 py-3.5 rounded transition-all hover:bg-yellow-300 active:scale-95;
+    @apply inline-flex items-center justify-center bg-accent text-ink font-mono text-xs
+      font-medium uppercase tracking-widest px-6 py-3.5 rounded transition-all
+      hover:bg-yellow-300 active:scale-95
+      disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none;
     min-height: 44px;
   }
 
