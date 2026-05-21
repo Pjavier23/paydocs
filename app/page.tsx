@@ -48,6 +48,17 @@ const docs = [
     desc_es: 'Alquileres, regalías, otros ingresos — imprime y envía',
     badge: 'Print & mail only',
   },
+  {
+    key: 'w2',
+    href: '/create/w2',
+    icon: '🏛️',
+    title_en: 'Create W-2',
+    title_es: 'Crear W-2',
+    price: '$4.99 per form',
+    desc_en: 'Wage & Tax Statement — employer & employee copies',
+    desc_es: 'Declaración de Salarios e Impuestos — copias del empleador y empleado',
+    badge: null,
+  },
 ]
 
 export default function HomePage() {
@@ -65,12 +76,12 @@ export default function HomePage() {
         </h1>
         <p className="font-sans text-gray-500 text-lg max-w-xl mx-auto mb-12">
           {lang === 'en'
-            ? 'Paystubs, invoices, and 1099 forms — pay per document, download instantly.'
-            : 'Talones, facturas y formularios 1099 — paga por documento, descarga al instante.'}
+            ? 'Paystubs, invoices, W-2s, and 1099 forms — pay per document, download instantly.'
+            : 'Talones, facturas, W-2 y formularios 1099 — paga por documento, descarga al instante.'}
         </p>
 
         {/* Doc Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {docs.map((doc) => (
             <Link
               key={doc.key}

@@ -1,4 +1,4 @@
-export type DocType = 'paystub' | '1099-nec' | '1099-misc' | 'invoice'
+export type DocType = 'paystub' | '1099-nec' | '1099-misc' | 'invoice' | 'w2'
 
 export interface InvoiceItem {
   id: string
@@ -129,11 +129,43 @@ export interface Form1099MISCData {
   taxYear: string
 }
 
+export interface FormW2Data {
+  // Employer (Box b, c)
+  employerName: string
+  employerAddress: string
+  employerCity: string
+  employerEIN: string
+  employerState: string
+  employerStateId: string
+  // Employee (Box a, e, f)
+  employeeSSN: string
+  employeeName: string
+  employeeAddress: string
+  employeeCity: string
+  // Amounts
+  wages: number           // Box 1: Wages, tips, other compensation
+  federalTax: number      // Box 2: Federal income tax withheld
+  ssWages: number         // Box 3: Social security wages
+  ssTax: number           // Box 4: Social security tax withheld
+  medicareWages: number   // Box 5: Medicare wages and tips
+  medicareTax: number     // Box 6: Medicare tax withheld
+  stateWages: number      // Box 16: State wages
+  stateTax: number        // Box 17: State income tax
+  localWages: number      // Box 18: Local wages (optional)
+  localTax: number        // Box 19: Local income tax (optional)
+  localityName: string    // Box 20: Locality name (optional)
+  // Box 13 checkboxes
+  retirementPlan: boolean
+  statutoryEmployee: boolean
+  thirdPartySickPay: boolean
+  taxYear: string
+}
+
 export interface Document {
   id: string
   user_id: string | null
   type: DocType
-  data_json: PaystubData | Form1099NECData | Form1099MISCData | InvoiceData
+  data_json: PaystubData | Form1099NECData | Form1099MISCData | InvoiceData | FormW2Data
   paid: boolean
   stripe_session_id: string | null
   created_at: string
