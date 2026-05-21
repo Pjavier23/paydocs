@@ -1,4 +1,4 @@
-import type { PaystubData, Form1099NECData, Form1099MISCData, InvoiceData } from '@/types'
+import type { PaystubData, Form1099NECData, Form1099MISCData, InvoiceData, FormW2Data } from '@/types'
 
 const fmt = (n: number) => `$${(n || 0).toFixed(2)}`
 
@@ -350,29 +350,186 @@ export function buildMISC(d: Form1099MISCData): Record<string, unknown> {
   }
 }
 
+// ── W-2 ───────────────────────────────────────────────────────────────────
+// 12 columns × 45pt = 540pt.
+// Layout mirrors IRS W-2 layout: employer info top-left, employee info below,
+// then the numbered boxes in rows of 3 (4 cols each).
+
+const SS_WAGE_CAP = 176100 // 2025 Social Security wage base
+
+const W2_DISCLAIMER = "This information is being furnished to the Internal Revenue Service. If you are required to file a tax return, a negligence penalty or other sanction may be imposed on you if this income is taxable and the IRS determines that it has not been reported."
+
+function w2Copy(d: FormW2Data, copyLabel: string, copyDesc: string): Row[] {
+  const check = (v: boolean) => (v ? '☑' : '☐')
+
+  return [
+    {
+      columns: [
+        { text: 'Department of the Treasury — Internal Revenue Service', fontSize: 7, color: '#555555' },
+        { text: `${copyLabel} — ${copyDesc}`, fontSize: 7.5, bold: true, alignment: 'right' },
+      ],
+      marginBottom: 3,
+    },
+    {
+      table: {
+        widths: W12,
+        body: [
+          // ── Row 1: Box a (SSN 4cols) | Box b (EIN 4cols) | Form header (4cols) ──
+          [
+            ...adr('a  Employee\'s social security number', d.employeeSSN, 4),
+            ...adr('b  Employer identification number (EIN)', d.employerEIN, 4),
+            mkCell([
+              { text: 'OMB No. 1545-0008', fontSize: 6.5, alignment: 'right', color: '#555555' },
+              { text: d.taxYear || '', fontSize: 18, bold: true, alignment: 'center', marginTop: 2 },
+              { text: 'Form W-2', fontSize: 9, bold: true, alignment: 'center', marginTop: 1 },
+              { text: 'Wage and Tax Statement', fontSize: 6, alignment: 'center' },
+            ], 4, [3, 3, 3, 3]),
+            mkPh(), mkPh(), mkPh(),
+          ],
+          // ── Row 2: Box c Employer info (8cols) | Box d Control # (4cols) ──
+          [
+            mkCell([
+              { text: 'c  Employer\'s name, address, and ZIP code', fontSize: 5.5, color: '#444444' },
+              { text: d.employerName || '—', bold: true, fontSize: 9, marginTop: 3 },
+              { text: d.employerAddress || '', fontSize: 8 },
+              { text: d.employerCity || '', fontSize: 8 },
+            ], 8, [3, 3, 3, 8]),
+            mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(),
+            mkCell([
+              { text: 'd  Control number', fontSize: 5.5, color: '#444444' },
+              { text: '', marginTop: 9 },
+            ], 4, [3, 3, 3, 8]),
+            mkPh(), mkPh(), mkPh(),
+          ],
+          // ── Row 3: Box e Employee name (8cols) | Box f SSN (4cols) ──
+          [
+            mkCell([
+              { text: 'e  Employee\'s first name and initial    Last name    Suf.', fontSize: 5.5, color: '#444444' },
+              { text: d.employeeName || '—', bold: true, fontSize: 9, marginTop: 3 },
+            ], 8, [3, 3, 3, 6]),
+            mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(),
+            mkCell([
+              { text: 'f  Employee\'s address and ZIP code', fontSize: 5.5, color: '#444444' },
+              { text: d.employeeAddress || '', fontSize: 8, marginTop: 3 },
+              { text: d.employeeCity || '', fontSize: 8 },
+            ], 4, [3, 3, 3, 6]),
+            mkPh(), mkPh(), mkPh(),
+          ],
+          // ── Amount boxes — 3 per row (4 cols each) ──
+          [
+            ...amtBox('1', 'Wages, tips, other compensation', fmt(d.wages), 4, 12),
+            ...amtBox('2', 'Federal income tax withheld', fmt(d.federalTax), 4, 12),
+            ...amtBox('3', 'Social security wages', fmt(Math.min(d.ssWages, SS_WAGE_CAP)), 4, 12),
+          ],
+          [
+            ...amtBox('4', 'Social security tax withheld', fmt(d.ssTax), 4, 12),
+            ...amtBox('5', 'Medicare wages and tips', fmt(d.medicareWages), 4, 12),
+            ...amtBox('6', 'Medicare tax withheld', fmt(d.medicareTax), 4, 12),
+          ],
+          [
+            ...emptyBox('7', 'Social security tips', 4),
+            ...emptyBox('8', 'Allocated tips', 4),
+            ...emptyBox('10', 'Dependent care benefits', 4),
+          ],
+          // ── Box 11 (nonqualified) | Box 12 placeholder | Box 13 checkboxes ──
+          [
+            ...emptyBox('11', 'Nonqualified plans', 4),
+            mkCell([
+              { text: '12a  See instructions for box 12', fontSize: 5.5, color: '#444444' },
+              { columns: [{ text: 'Code', color: '#444444', fontSize: 7 }, { text: '', alignment: 'right', fontSize: 9 }], marginTop: 6 },
+            ], 4, [3, 3, 3, 5]),
+            mkPh(), mkPh(), mkPh(),
+            mkCell([
+              { text: '13', fontSize: 5.5, color: '#444444', marginBottom: 4 },
+              { text: `${check(d.statutoryEmployee)}  Statutory employee`, fontSize: 7, marginBottom: 3 },
+              { text: `${check(d.retirementPlan)}  Retirement plan`, fontSize: 7, marginBottom: 3 },
+              { text: `${check(d.thirdPartySickPay)}  Third-party sick pay`, fontSize: 7 },
+            ], 4, [3, 3, 3, 3]),
+            mkPh(), mkPh(), mkPh(),
+          ],
+          // ── Box 14 Other (full width) ──
+          [
+            mkCell([
+              { text: '14  Other', fontSize: 5.5, color: '#444444' },
+              { text: '', marginTop: 12 },
+            ], 12, [3, 3, 3, 3]),
+            mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(), mkPh(),
+          ],
+          // ── State row: Box 15 (4cols) | Box 16 (4cols) | Box 17 (4cols) ──
+          [
+            mkCell([
+              { text: '15  State    Employer\'s state ID number', fontSize: 5.5, color: '#444444' },
+              { text: `${d.employerState || ''}   ${d.employerStateId || ''}`, fontSize: 9, marginTop: 3 },
+            ], 4, [3, 3, 3, 5]),
+            mkPh(), mkPh(), mkPh(),
+            ...amtBox('16', 'State wages, tips, etc.', fmt(d.stateWages), 4, 10),
+            ...amtBox('17', 'State income tax', fmt(d.stateTax), 4, 10),
+          ],
+          // ── Local row: Box 18 (4cols) | Box 19 (4cols) | Box 20 (4cols) ──
+          [
+            ...amtBox('18', 'Local wages, tips, etc.', fmt(d.localWages), 4, 10),
+            ...amtBox('19', 'Local income tax', fmt(d.localTax), 4, 10),
+            mkCell([
+              { text: '20  Locality name', fontSize: 5.5, color: '#444444' },
+              { text: d.localityName || '', fontSize: 9, marginTop: 3 },
+            ], 4, [3, 3, 3, 5]),
+            mkPh(), mkPh(), mkPh(),
+          ],
+        ],
+      },
+      layout: FORM_LAYOUT,
+      marginBottom: 6,
+    },
+    { text: W2_DISCLAIMER, fontSize: 6.5, color: '#555555' },
+  ]
+}
+
+export function buildW2(d: FormW2Data): Record<string, unknown> {
+  return {
+    defaultStyle: { font: 'Helvetica', fontSize: 9, color: DARK },
+    pageSize: 'LETTER',
+    pageMargins: [36, 36, 36, 36],
+    content: [
+      ...w2Copy(d, 'Copy B', "To Be Filed with Employee's Federal Tax Return"),
+      { text: '', pageBreak: 'before' },
+      ...w2Copy(d, 'Copy C', "For Employee's Records"),
+      { text: '', pageBreak: 'before' },
+      ...w2Copy(d, 'Copy D', "For Employer"),
+    ],
+  }
+}
+
 export function buildInvoice(d: InvoiceData): Record<string, unknown> {
   const subtotal = d.items.reduce((s, i) => s + i.amount, 0)
   const discountAmt = d.discount > 0 ? subtotal * (d.discount / 100) : 0
   const taxAmt = d.taxRate > 0 ? (subtotal - discountAmt) * (d.taxRate / 100) : 0
   const total = subtotal - discountAmt + taxAmt
 
+  const fmtC = (n: number) => {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: d.currency || 'USD', maximumFractionDigits: 2 }).format(n || 0)
+    } catch {
+      return `${d.currency || 'USD'} ${(n || 0).toFixed(2)}`
+    }
+  }
+
   const lineRows = d.items.map(item => [
     { text: item.description, fontSize: 9 },
     { text: String(item.quantity), alignment: 'right', fontSize: 9 },
-    { text: fmt(item.rate), alignment: 'right', fontSize: 9 },
-    { text: fmt(item.amount), alignment: 'right', bold: true, fontSize: 9 },
+    { text: fmtC(item.rate), alignment: 'right', fontSize: 9 },
+    { text: fmtC(item.amount), alignment: 'right', bold: true, fontSize: 9 },
   ])
 
   const totalsRows: Row[][] = [
-    [{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, { text: 'Subtotal', color: GRAY, fontSize: 9, alignment: 'right', border: [false, false, false, false] }, { text: fmt(subtotal), fontSize: 9, alignment: 'right', border: [false, false, false, false] }] as Row[],
+    [{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, { text: 'Subtotal', color: GRAY, fontSize: 9, alignment: 'right', border: [false, false, false, false] }, { text: fmtC(subtotal), fontSize: 9, alignment: 'right', border: [false, false, false, false] }] as Row[],
   ]
   if (discountAmt > 0) {
-    totalsRows.push([{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, { text: `Discount (${d.discount}%)`, color: GRAY, fontSize: 9, alignment: 'right', border: [false, false, false, false] }, { text: `– ${fmt(discountAmt)}`, color: '#ef4444', fontSize: 9, alignment: 'right', border: [false, false, false, false] }] as Row[])
+    totalsRows.push([{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, { text: `Discount (${d.discount}%)`, color: GRAY, fontSize: 9, alignment: 'right', border: [false, false, false, false] }, { text: `– ${fmtC(discountAmt)}`, color: '#ef4444', fontSize: 9, alignment: 'right', border: [false, false, false, false] }] as Row[])
   }
   if (taxAmt > 0) {
-    totalsRows.push([{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, { text: `Tax (${d.taxRate}%)`, color: GRAY, fontSize: 9, alignment: 'right', border: [false, false, false, false] }, { text: fmt(taxAmt), fontSize: 9, alignment: 'right', border: [false, false, false, false] }] as Row[])
+    totalsRows.push([{ text: '', border: [false, false, false, false] }, { text: '', border: [false, false, false, false] }, { text: `Tax (${d.taxRate}%)`, color: GRAY, fontSize: 9, alignment: 'right', border: [false, false, false, false] }, { text: fmtC(taxAmt), fontSize: 9, alignment: 'right', border: [false, false, false, false] }] as Row[])
   }
-  totalsRows.push([{ text: '', border: [false, true, false, false] }, { text: '', border: [false, true, false, false] }, { text: `TOTAL (${d.currency})`, bold: true, fontSize: 11, alignment: 'right', border: [false, true, false, false] }, { text: fmt(total), bold: true, fontSize: 11, alignment: 'right', border: [false, true, false, false] }] as Row[])
+  totalsRows.push([{ text: '', border: [false, true, false, false] }, { text: '', border: [false, true, false, false] }, { text: `TOTAL (${d.currency})`, bold: true, fontSize: 11, alignment: 'right', border: [false, true, false, false] }, { text: fmtC(total), bold: true, fontSize: 11, alignment: 'right', border: [false, true, false, false] }] as Row[])
 
   return {
     defaultStyle: { font: 'Helvetica', fontSize: 9, color: DARK },

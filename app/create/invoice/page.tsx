@@ -10,8 +10,6 @@ import { v4 as uuidv4 } from 'uuid'
 
 const today = new Date().toISOString().split('T')[0]
 const due30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
-const fmt = (n: number) => `$${(n || 0).toFixed(2)}`
-
 const DEFAULT: InvoiceData = {
   fromName: '', fromAddress: '', fromCity: '', fromEmail: '', fromPhone: '',
   toName: '', toAddress: '', toCity: '', toEmail: '',
@@ -77,6 +75,14 @@ export default function InvoicePage() {
   const discountAmt = data.discount > 0 ? subtotal * (data.discount / 100) : 0
   const taxAmt = data.taxRate > 0 ? (subtotal - discountAmt) * (data.taxRate / 100) : 0
   const total = subtotal - discountAmt + taxAmt
+
+  const fmt = (n: number) => {
+    try {
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: data.currency || 'USD', maximumFractionDigits: 2 }).format(n || 0)
+    } catch {
+      return `${data.currency || 'USD'} ${(n || 0).toFixed(2)}`
+    }
+  }
 
   const canSubmit = !loading && !!data.fromName && !!data.toName && total > 0
 
