@@ -131,6 +131,20 @@ function calcPayPeriod(freq: Freq): { start: string; end: string; payDate: strin
   return { start, ...calcEndFromStart(start, freq) }
 }
 
+function currentPeriodNum(dateStr: string, freq: Freq): number {
+  if (!dateStr) return 1
+  const d = new Date(dateStr + 'T12:00:00')
+  const jan1 = new Date(d.getFullYear(), 0, 1)
+  const dayOfYear = Math.ceil((d.getTime() - jan1.getTime()) / 86400000) + 1
+  switch (freq) {
+    case 'weekly':      return Math.min(Math.ceil(dayOfYear / 7), 52)
+    case 'biweekly':    return Math.min(Math.ceil(dayOfYear / 14), 26)
+    case 'semimonthly': return Math.min(Math.ceil(dayOfYear / 15.22), 24)
+    case 'monthly':     return d.getMonth() + 1
+    default:            return 1
+  }
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 const DEFAULT: PaystubData = {
@@ -220,9 +234,27 @@ export default function PaystubFormPage() {
     setData(prev => ({ ...prev, federalTax: fed, stateTax: st }))
   }, [data.grossPay, data.empFilingStatus, data.stateCode, data.payFrequency])
 
+  // Auto-populate YTD fields based on pay period start date and frequency
+  useEffect(() => {
+    if (!data.payPeriodStart || data.grossPay <= 0) return
+    const freq = (data.payFrequency || 'biweekly') as Freq
+    const n = currentPeriodNum(data.payPeriodStart, freq)
+    const totalDed = data.federalTax + data.stateTax + data.socialSecurity + data.medicare + data.healthInsurance + data.otherDeduction
+    const net = data.grossPay - totalDed
+    setData(prev => ({
+      ...prev,
+      ytdGross:    parseFloat((data.grossPay   * n).toFixed(2)),
+      ytdFederal:  parseFloat((data.federalTax  * n).toFixed(2)),
+      ytdState:    parseFloat((data.stateTax    * n).toFixed(2)),
+      ytdSS:       parseFloat((data.socialSecurity * n).toFixed(2)),
+      ytdMedicare: parseFloat((data.medicare    * n).toFixed(2)),
+      ytdNet:      parseFloat((net              * n).toFixed(2)),
+    }))
+  }, [data.payPeriodStart, data.payFrequency, data.grossPay, data.federalTax, data.stateTax, data.socialSecurity, data.medicare, data.healthInsurance, data.otherDeduction])
+
   const totalDed = data.federalTax + data.stateTax + data.socialSecurity + data.medicare + data.healthInsurance + data.otherDeduction
   const netPay = data.grossPay - totalDed
-  const canSubmit = !loading && !!data.empName && !!data.companyName
+  const canSubmit = !loading && !!data.empName && !!data.companyName && data.grossPay > 0
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -461,6 +493,13 @@ export default function PaystubFormPage() {
           <div className="card">
             <div className="section-title">{t('ytd_section')}</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2">
+                <div className="text-[10px] font-mono text-blue-600 bg-blue-50 rounded px-3 py-2 mb-2">
+                  {lang === 'en'
+                    ? `Auto-estimated from period ${data.payPeriodStart ? currentPeriodNum(data.payPeriodStart, (data.payFrequency || 'biweekly') as Freq) : '?'} of ${PERIODS[(data.payFrequency || 'biweekly') as Freq]} — edit any field to override`
+                    : `Auto-estimado del período ${data.payPeriodStart ? currentPeriodNum(data.payPeriodStart, (data.payFrequency || 'biweekly') as Freq) : '?'} de ${PERIODS[(data.payFrequency || 'biweekly') as Freq]} — edita para ajustar`}
+                </div>
+              </div>
               <FormField label={t('ytd_gross')} value={data.ytdGross} onChange={set('ytdGross')} type="number" />
               <FormField label={t('ytd_federal')} value={data.ytdFederal} onChange={set('ytdFederal')} type="number" />
               <FormField label={t('ytd_state')} value={data.ytdState} onChange={set('ytdState')} type="number" />
